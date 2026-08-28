@@ -1,0 +1,15 @@
+# OpenCode 配置目录（符号链接）
+.opencode/
+
+# Node.js / 构建产物
+node_modules/
+dist/
+*.log
+
+# 环境变量
+.env
+
+# 通用
+.DS_Store
+.idea/
+.vscode/
