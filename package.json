@@ -1,0 +1,19 @@
+{
+  "name": "2libra-theme",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "为 2libra.com 提供办公 IM 风格的界面主题（Chrome 扩展 MV3）",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "icons": "node scripts/gen-icons.mjs",
+    "zip": "node scripts/build.mjs --zip"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.0"
+  }
+}

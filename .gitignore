@@ -6,6 +6,10 @@ node_modules/
 dist/
 *.log
 
+# Playwright 临时产物（截图 / 快照 / 会话）
+.playwright/
+.playwright-cli/
+
 # 环境变量
 .env
 

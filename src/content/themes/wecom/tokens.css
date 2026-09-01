@@ -1,0 +1,59 @@
+/* 企业微信桌面端设计 token（按 4.x 实测样图校准） */
+:host {
+  --wc-font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
+
+  /* 主色 */
+  --wc-blue: #0082ef;
+  --wc-blue-deep: #0076db;
+  --wc-blue-soft: #e6f2fe;
+  --wc-green: #07c160;
+  --wc-red: #fa4444;
+  --wc-bubble-self: #95ec69;
+
+  /* 左侧导航栏（浅蓝调，按样图采样） */
+  --wc-nav-bg: #e3f1ff;
+  --wc-nav-border: #cfdff2;
+  --wc-nav-name: #25252d;
+  --wc-nav-fg: #505d6e;
+  --wc-nav-fg-group: #334a70;
+  --wc-nav-hover: #d5e7fb;
+  --wc-nav-active-bg: #cbe3fe;
+  --wc-nav-active-fg: #1462f9;
+  --wc-nav-section: #8fa6c2;
+  --wc-nav-count: #7c8ca4;
+
+  /* 会话面板（浅） */
+  --wc-panel-bg: #f4f7fb;
+  --wc-item-hover: #f0f0f0;
+  --wc-item-selected: var(--wc-blue);
+  --wc-search-bg: #ffffff;
+
+  /* 聊天区 */
+  --wc-chat-bg: #f5f6f7;
+  --wc-bubble-other: #ffffff;
+  --wc-quote-bg: #f0f1f2;
+  --wc-quote-self-bg: rgba(0, 0, 0, 0.08);
+  --wc-composer-card: #ffffff;
+
+  /* 成员面板 */
+  --wc-members-bg: #ffffff;
+
+  /* 描边与文字 */
+  --wc-border: #e7e7e7;
+  --wc-border-strong: #d9d9d9;
+  --wc-text: #191919;
+  --wc-text-2: #7f7f7f;
+  --wc-text-3: #b2b2b2;
+  --wc-text-on-blue: #ffffff;
+  --wc-text-on-blue-soft: rgba(255, 255, 255, 0.8);
+
+  /* 尺寸 */
+  --wc-nav-w: 145px;
+  --wc-panel-w: 266px;
+  --wc-members-w: 158px;
+  --wc-head-h: 60px;
+
+  /* 圆角 */
+  --wc-radius: 6px;
+  --wc-radius-lg: 10px;
+}

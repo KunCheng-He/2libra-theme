@@ -1,0 +1,15 @@
+/* 接管样式：仅当 <html data-2lt-on> 时隐藏原应用全部子节点。
+   主题宿主元素挂载在 <html> 上不受影响；站点新增的弹层（portal 到 body）同样被隐藏。 */
+
+html[data-2lt-on] body > :not([data-2lt-host]) {
+  display: none !important;
+}
+
+html[data-2lt-on] body {
+  overflow: hidden !important;
+  margin: 0 !important;
+}
+
+html[data-2lt-on] {
+  overflow: hidden !important;
+}

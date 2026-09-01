@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>2libra 主题</title>
+  <link rel="stylesheet" href="./popup.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="head">
+      <div class="logo"></div>
+      <div class="title">
+        <h1>2libra 主题</h1>
+        <p id="status" class="status">检测中…</p>
+      </div>
+    </header>
+
+    <section class="row toggle-row">
+      <div>
+        <div class="label">伪装模式</div>
+        <div class="hint">开启后 2libra 将呈现办公 IM 界面</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="enabled" />
+        <span class="slider"></span>
+      </label>
+    </section>
+
+    <section class="themes">
+      <div class="label">主题</div>
+      <div id="theme-list"></div>
+    </section>
+
+    <footer class="foot">
+      <span>刷新页面以应用更改</span>
+    </footer>
+  </div>
+  <script src="./popup.js"></script>
+</body>
+</html>
