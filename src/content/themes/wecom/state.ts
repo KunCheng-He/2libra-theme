@@ -60,6 +60,8 @@ export interface AppState {
   unreadFilter: boolean;
   unreadSessions: UnreadSession[];
   unreadLoading: boolean;
+  /** 历史消息：已读通知按帖子聚合（未读为空时回退展示） */
+  readSessions: UnreadSession[];
 
   searchOpen: boolean;
   searchQuery: string;
@@ -93,6 +95,7 @@ export const initialState = (): AppState => ({
   unreadFilter: false,
   unreadSessions: [],
   unreadLoading: false,
+  readSessions: [],
 
   searchOpen: false,
   searchQuery: "",

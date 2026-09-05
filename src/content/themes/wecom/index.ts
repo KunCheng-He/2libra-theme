@@ -82,6 +82,9 @@ function kindOf(type: string): string {
 /** 站点聚合页的第一段（今日/近期热议等），不是节点 slug，不能按帖子路由处理 */
 const AGGREGATE_SEGMENTS = new Set(["hot", "latest", "latest-comments"]);
 
+/** 消息列表只保留帖子会话消息（回复/@我）；点赞、徽章、系统、升级、关注、打赏等通知不进入消息列表 */
+const MESSAGE_TYPES = new Set(["reply", "reply_mention", "mention"]);
+
 class WecomTheme implements ThemePack {
   id = "wecom";
   name = "办公 IM 风格";
@@ -255,6 +258,7 @@ class WecomTheme implements ThemePack {
       onOpenNode: (slug) => this.router.push(`/node/${slug}`),
       onNewChat: () => this.router.push("/post/create"),
       onOpenUnread: (s) => void this.openUnread(s),
+      onOpenHistoryPost: (s) => this.router.push(`/post/${s.nodeSlug || "forum"}/${s.shortId}`),
       onUnreadChip: () => void this.loadUnreadSessions(),
       onSearchInput: (q) => {
         this.state.searchQuery = q;
@@ -426,6 +430,7 @@ class WecomTheme implements ThemePack {
   private exitUnreadView() {
     this.state.unreadFilter = false;
     this.state.unreadSessions = [];
+    this.state.readSessions = [];
     this.state.unreadLoading = false;
     this.refreshListUi();
   }
@@ -452,44 +457,49 @@ class WecomTheme implements ThemePack {
     this.state.unreadLoading = false;
     if (!this.ctx || !this.state.unreadFilter) return;
 
-    const map = new Map<string, UnreadSession>();
-    for (const n of (list ?? []).filter((x) => x && !x.is_read)) {
-      const ref = postRefOf(n);
-      if (!ref) continue;
-      const p = n.payload ?? {};
-      const who =
-        n.from_user?.username ??
-        firstRelationName(p) ??
-        (typeof p.alias_name === "string" ? p.alias_name : "") ??
-        "";
-      const author = n.from_user ?? null;
-      const cur = map.get(ref.shortId);
-      if (cur) {
-        cur.unread += 1;
-        cur.ids.push(n.id);
-        if (new Date(n.created_at).getTime() > new Date(cur.lastAt).getTime()) {
-          cur.lastAt = n.created_at;
-          cur.from = who;
-          cur.author = author;
-          cur.kind = kindOf(n.type);
+    /** 按帖子聚合一组通知（最新一条决定标题/来源/动作）；只统计帖子会话消息 */
+    const aggregate = (only: (n: SiteNotification) => boolean) => {
+      const map = new Map<string, UnreadSession>();
+      for (const n of (list ?? []).filter((x) => x && MESSAGE_TYPES.has(x.type) && only(x))) {
+        const ref = postRefOf(n);
+        if (!ref) continue;
+        const p = n.payload ?? {};
+        const who =
+          n.from_user?.username ??
+          firstRelationName(p) ??
+          (typeof p.alias_name === "string" ? p.alias_name : "") ??
+          "";
+        const author = n.from_user ?? null;
+        const cur = map.get(ref.shortId);
+        if (cur) {
+          cur.unread += 1;
+          cur.ids.push(n.id);
+          if (new Date(n.created_at).getTime() > new Date(cur.lastAt).getTime()) {
+            cur.lastAt = n.created_at;
+            cur.from = who;
+            cur.author = author;
+            cur.kind = kindOf(n.type);
+          }
+        } else {
+          map.set(ref.shortId, {
+            shortId: ref.shortId,
+            nodeSlug: ref.nodeSlug,
+            title: typeof p.postTitle === "string" ? p.postTitle : "",
+            from: who,
+            author,
+            lastAt: n.created_at,
+            unread: 1,
+            ids: [n.id],
+            kind: kindOf(n.type),
+          });
         }
-      } else {
-        map.set(ref.shortId, {
-          shortId: ref.shortId,
-          nodeSlug: ref.nodeSlug,
-          title: typeof p.postTitle === "string" ? p.postTitle : "",
-          from: who,
-          author,
-          lastAt: n.created_at,
-          unread: 1,
-          ids: [n.id],
-          kind: kindOf(n.type),
-        });
       }
-    }
-    this.state.unreadSessions = [...map.values()].sort(
-      (a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime(),
-    );
+      return [...map.values()].sort(
+        (a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime(),
+      );
+    };
+    this.state.unreadSessions = aggregate((n) => !n.is_read);
+    this.state.readSessions = aggregate((n) => !!n.is_read);
     this.paintSessions();
   }
 

@@ -10,6 +10,8 @@ export interface ListCallbacks {
   onOpenNode(parentSlug: string): void;
   onNewChat(): void;
   onOpenUnread(s: UnreadSession): void;
+  /** 历史消息（已读通知聚合）会话点击：仅打开帖子 */
+  onOpenHistoryPost(s: UnreadSession): void;
   onUnreadChip(): void;
   onSearchInput(q: string): void;
   onSearchFocus(): void;
@@ -151,9 +153,9 @@ export function renderSessions(
   return renderLatestSessions(container, state, route, cb);
 }
 
-/** 未读消息视图：只展示有未读通知的帖子 */
+/** 未读消息视图：只展示有未读通知的帖子；无未读时回退展示历史消息（已读通知聚合） */
 function renderUnreadSessions(container: HTMLElement, state: AppState, cb: ListCallbacks) {
-  if (state.unreadLoading && state.unreadSessions.length === 0) {
+  if (state.unreadLoading && state.unreadSessions.length === 0 && state.readSessions.length === 0) {
     clear(container);
     for (let i = 0; i < 6; i++) container.append(el("div", { class: "wc-skeleton" }));
     return;
@@ -162,28 +164,32 @@ function renderUnreadSessions(container: HTMLElement, state: AppState, cb: ListC
   clear(container);
   if (!state.unreadSessions.length) {
     container.append(el("div", { class: "wc-list-state" }, "暂无未读消息"));
+    for (const s of state.readSessions) container.append(unreadSessionItem(cb, s, true));
     return;
   }
 
-  for (const s of state.unreadSessions) {
-    const item = el("div", { class: "wc-session" });
-    item.append(unreadAvatarEl(cb, s));
+  for (const s of state.unreadSessions) container.append(unreadSessionItem(cb, s, false));
+}
 
-    const main = el("div", { class: "wc-session-main" });
-    main.append(el("div", { class: "wc-session-title" }, s.title || "（无标题）"));
-    main.append(el("div", { class: "wc-session-sub" }, `[${s.unread}条] ${s.from || "有人"}${s.kind ? ` ${s.kind}` : " 回复"}`));
-    item.append(main);
+/** 未读/历史会话项：history=true 时无红点角标，点击不触发已读标记 */
+function unreadSessionItem(cb: ListCallbacks, s: UnreadSession, history: boolean): HTMLElement {
+  const item = el("div", { class: "wc-session" });
+  item.append(unreadAvatarEl(cb, s));
 
-    const side = el("div", { class: "wc-session-side" });
-    side.append(el("span", { class: "wc-session-time" }, formatListTime(s.lastAt)));
-    if (s.unread > 0) {
-      side.append(el("span", { class: "wc-session-badge" }, s.unread > 99 ? "99+" : String(s.unread)));
-    }
-    item.append(side);
+  const main = el("div", { class: "wc-session-main" });
+  main.append(el("div", { class: "wc-session-title" }, s.title || "（无标题）"));
+  main.append(el("div", { class: "wc-session-sub" }, `[${s.unread}条] ${s.from || "有人"}${s.kind ? ` ${s.kind}` : " 回复"}`));
+  item.append(main);
 
-    on(item, "click", () => cb.onOpenUnread(s));
-    container.append(item);
+  const side = el("div", { class: "wc-session-side" });
+  side.append(el("span", { class: "wc-session-time" }, formatListTime(s.lastAt)));
+  if (!history && s.unread > 0) {
+    side.append(el("span", { class: "wc-session-badge" }, s.unread > 99 ? "99+" : String(s.unread)));
   }
+  item.append(side);
+
+  on(item, "click", () => (history ? cb.onOpenHistoryPost(s) : cb.onOpenUnread(s)));
+  return item;
 }
 
 /** 未读会话头像：最新回复者头像，失败/匿名回退节点字符头像 */
@@ -222,6 +228,19 @@ function renderLatestSessions(
     return;
   }
 
+  appendLatestItems(container, state, route, cb);
+
+  // 保持阅读位置：内容替换后若原本在底部附近则滚回去
+  if (hadScroll && nearBottom) container.scrollTop = container.scrollHeight;
+}
+
+/** 渲染历史会话项 + 分页（供最新会话视图与未读视图的空态回退共用） */
+function appendLatestItems(
+  container: HTMLElement,
+  state: AppState,
+  route: ThemeRoute,
+  cb: ListCallbacks,
+) {
   for (const post of state.sessions) {
     const item = el("div", {
       class: `wc-session${route.type === "post" && route.postId === post.short_id ? " is-active" : ""}`,
@@ -256,9 +275,6 @@ function renderLatestSessions(
     }
     container.append(more);
   }
-
-  // 保持阅读位置：内容替换后若原本在底部附近则滚回去
-  if (hadScroll && nearBottom) container.scrollTop = container.scrollHeight;
 }
 
 export function bindInfiniteScroll(container: HTMLElement, cb: ListCallbacks): () => void {
