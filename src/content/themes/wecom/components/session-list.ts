@@ -262,8 +262,23 @@ function renderLatestSessions(
 }
 
 export function bindInfiniteScroll(container: HTMLElement, cb: ListCallbacks): () => void {
+  // 每次触底只加载一页：触发后进入冷却，用户向上滚动后重新武装。
+  // 否则渲染后的自动回滚（保持阅读位置）会再次触发 scroll → 连环加载到底。
+  let lastTop = container.scrollTop;
+  let lastHeight = container.scrollHeight;
+  let armed = true;
   const handler = () => {
-    if (container.scrollHeight - container.scrollTop - container.clientHeight < 120) cb.onLoadMore();
+    const top = container.scrollTop;
+    const height = container.scrollHeight;
+    if (top < lastTop - 4) armed = true;
+    if (height < lastHeight) armed = true; // 列表被替换（切节点/刷新）后重新武装
+    lastTop = top;
+    lastHeight = height;
+    if (!armed) return;
+    if (container.scrollHeight - top - container.clientHeight < 120) {
+      armed = false;
+      cb.onLoadMore();
+    }
   };
   container.addEventListener("scroll", handler, { passive: true });
   return () => container.removeEventListener("scroll", handler);
