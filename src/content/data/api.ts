@@ -50,16 +50,17 @@ export const dataApi: DataApi = {
     return pickItems(d);
   },
 
-  async listByChild(nodeId, page, limit = PAGE_SIZE_POSTS): Promise<Paged<PostSummary>> {
+  async listByChild(parentSlug, nodeId, page, limit = PAGE_SIZE_POSTS): Promise<Paged<PostSummary>> {
+    // 站点接口要求 node_id 必须与 parent_slug 同时提供，否则恒返回空列表
     const d = await get<Paged<PostSummary>>(
-      `/api/posts/list?page=${page}&limit=${limit}&node_id=${encodeURIComponent(nodeId)}`,
+      `/api/posts/list?page=${page}&limit=${limit}&parent_slug=${encodeURIComponent(parentSlug)}&node_id=${encodeURIComponent(nodeId)}`,
     );
     return pickItems(d);
   },
 
   async getPost(shortId: string): Promise<PostDetail> {
     const d = await get<PostDetail>(`/api/posts/${encodeURIComponent(shortId)}`);
-    if (!d || !d.id) throw new ApiError(-1, "帖子不存在或已删除");
+    if (!d || !d.id) throw new ApiError(404, "帖子不存在或已删除");
     return d;
   },
 

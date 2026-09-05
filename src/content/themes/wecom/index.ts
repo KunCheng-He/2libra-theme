@@ -79,6 +79,9 @@ function kindOf(type: string): string {
   }
 }
 
+/** 站点聚合页的第一段（今日/近期热议等），不是节点 slug，不能按帖子路由处理 */
+const AGGREGATE_SEGMENTS = new Set(["hot", "latest", "latest-comments"]);
+
 class WecomTheme implements ThemePack {
   id = "wecom";
   name = "办公 IM 风格";
@@ -93,6 +96,7 @@ class WecomTheme implements ThemePack {
   private cleanup: (() => void)[] = [];
   private errorStreak = 0;
   private listKey = "";
+  private chatSeq = 0;
 
   /* ---------- 路由解析 ---------- */
   matchRoute(path: string, search: string): ThemeRoute | null {
@@ -101,9 +105,9 @@ class WecomTheme implements ThemePack {
     if (path === "/search") {
       return { type: "search", query: new URLSearchParams(search).get("q") ?? "" };
     }
-    let m = path.match(/^\/post\/([a-z0-9-]+)\/([A-Za-z0-9_-]+)\/?$/);
-    if (m) return { type: "post", postId: m[2] };
-    m = path.match(/^\/node\/([a-z0-9-]+)(?:\/([a-z0-9-]+))?\/?$/);
+    let m = path.match(/^\/post\/([A-Za-z0-9-]+)\/([A-Za-z0-9_-]+)\/?$/);
+    if (m && !AGGREGATE_SEGMENTS.has(m[1].toLowerCase())) return { type: "post", postId: m[2] };
+    m = path.match(/^\/node\/([A-Za-z0-9-]+)(?:\/([A-Za-z0-9-]+))?\/?$/);
     if (m) return { type: "node", parentSlug: m[1], childSlug: m[2] };
     return null;
   }
@@ -198,16 +202,20 @@ class WecomTheme implements ThemePack {
   private guard<T>(fn: () => Promise<T>): Promise<T | undefined> {
     return fn().catch((e) => {
       console.warn("[2lt][wecom]", e);
-      this.errorStreak += 1;
-      if (this.errorStreak >= 3 && this.ctx) {
-        toast(this.ctx.root, "主题渲染异常，已回退原版界面");
-        this.ctx.escapeHatch();
-      } else if (this.ctx) {
-        const msg = (e as ApiError)?.message ?? (e instanceof Error ? e.message : "加载失败");
-        toast(this.ctx.root, msg);
-      }
+      this.reportError(e);
       return undefined;
     });
+  }
+
+  private reportError(e: unknown) {
+    this.errorStreak += 1;
+    if (this.errorStreak >= 3 && this.ctx) {
+      toast(this.ctx.root, "主题渲染异常，已回退原版界面");
+      this.ctx.escapeHatch();
+    } else if (this.ctx) {
+      const msg = (e as ApiError)?.message ?? (e instanceof Error ? e.message : "加载失败");
+      toast(this.ctx.root, msg);
+    }
   }
 
   private renderRail() {
@@ -379,7 +387,7 @@ class WecomTheme implements ThemePack {
           nodeId = this.state.nodes.find((g) => g.slug === parent)?.children.find((c) => c.slug === child)?.id;
         }
         return nodeId
-          ? await this.data.listByChild(nodeId, page, PAGE_SIZE_POSTS)
+          ? await this.data.listByChild(parent ?? "", nodeId, page, PAGE_SIZE_POSTS)
           : await this.data.listLatest(page, PAGE_SIZE_POSTS);
       }
       if (parent) return await this.data.listByParent(parent, page, PAGE_SIZE_POSTS);
@@ -505,6 +513,7 @@ class WecomTheme implements ThemePack {
 
   private async loadChat(shortId: string) {
     if (!this.refs || !this.ctx) return;
+    const seq = ++this.chatSeq; // 竞态守卫：仅最后一次请求允许渲染
     this.state.post = null;
     this.state.messages = [];
     this.state.commentsPage = 0;
@@ -515,23 +524,33 @@ class WecomTheme implements ThemePack {
     this.refs.msgsHost = null;
     this.refs.composerHost = null;
 
-    const r = await this.guard(async () => {
+    try {
       const post = await this.data.getPost(shortId);
+      if (seq !== this.chatSeq) return;
       const comments = await this.data.getComments(shortId, 1, PAGE_SIZE_COMMENTS);
-      return { post, comments };
-    });
-    if (!r || !this.ctx || !this.refs || this.state.route.type !== "post") return;
-
-    this.state.post = r.post;
-    this.state.commentsPage = r.comments.page ?? 1;
-    this.state.commentsTotalPages = r.comments.total_pages ?? 0;
-    this.state.messages = buildMessages(r.post, r.comments.items ?? [], this.state.user?.id ?? null);
-    this.renderChat();
+      if (seq !== this.chatSeq || !this.ctx || !this.refs || this.state.route.type !== "post") return;
+      this.state.post = post;
+      this.state.commentsPage = comments.page ?? 1;
+      this.state.commentsTotalPages = comments.total_pages ?? 0;
+      this.state.messages = buildMessages(post, comments.items ?? [], this.state.user?.id ?? null);
+      this.renderChat();
+    } catch (e) {
+      if (seq !== this.chatSeq || !this.ctx) return;
+      const err = e as ApiError;
+      // 聚合页/已删除帖等非帖子路由 → 回退原版（PLAN：未映射路由自动回退）
+      if (err?.code === 404 || /不存在|已删除/.test(err?.message ?? "")) {
+        console.warn("[2lt][wecom] 非帖子路由，回退原版界面", err?.message);
+        this.ctx.escapeHatch();
+        return;
+      }
+      this.reportError(e);
+    }
   }
 
   private async loadComments(reset: boolean) {
     const post = this.state.post;
     if (!post || this.state.commentsLoading) return;
+    const seq = this.chatSeq;
     const page = reset ? 1 : this.state.commentsPage + 1;
     if (!reset && page > this.state.commentsTotalPages) return;
     this.state.commentsLoading = true;
@@ -539,7 +558,8 @@ class WecomTheme implements ThemePack {
 
     const r = await this.guard(() => this.data.getComments(post.short_id, page, PAGE_SIZE_COMMENTS));
     this.state.commentsLoading = false;
-    if (!r || !this.ctx) return;
+    // 帖子已切换 → 丢弃过期响应，避免旧帖回复追加到新帖
+    if (!r || !this.ctx || seq !== this.chatSeq || this.state.post !== post) return;
     const items = (r.items ?? []) as CommentNode[];
     const fresh = buildMessages(post, items, this.state.user?.id ?? null).filter((m) => m.kind !== "post");
     this.state.messages = reset
@@ -558,6 +578,7 @@ class WecomTheme implements ThemePack {
       return;
     }
     const target = this.state.replyTarget;
+    const seq = this.chatSeq;
     this.state.sending = true;
     try {
       const created = await this.data.createComment({
@@ -569,6 +590,7 @@ class WecomTheme implements ThemePack {
       });
       this.state.sending = false;
       this.state.replyTarget = null;
+      if (seq !== this.chatSeq || this.state.post !== post) return; // 期间已切换帖子，丢弃本地回显
       const floor = created?.floor ?? post.comment_count + 1;
       this.state.messages.push({
         kind: "comment",

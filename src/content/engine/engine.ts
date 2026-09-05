@@ -2,7 +2,7 @@ import { loadConfig, onConfigChange, quickReadEnabled, mirrorEnabled, type ExtCo
 import type { ThemePack, ThemeRoute } from "../../shared/types";
 import { dataApi } from "../data/api";
 import { registry } from "../themes/registry";
-import { adoptHostStyle, ensureShadowRoot, hideHost, releaseHostStyle, showHost } from "./host";
+import { adoptHostStyle, destroyHost, ensureShadowRoot, hideHost, releaseHostStyle, showHost, startHostGuard } from "./host";
 import { createRouter } from "./router";
 
 type State = "idle" | "active" | "fallback";
@@ -14,6 +14,9 @@ class Engine {
   private router = createRouter();
   private unsubRoute: (() => void) | null = null;
   private booting = false;
+  private fixingHost = false;
+  private fixCount = 0;
+  private lastFixAt = 0;
 
   async boot() {
     if (this.booting) return;
@@ -77,7 +80,6 @@ class Engine {
     adoptHostStyle();
     const root = ensureShadowRoot();
     showHost();
-    const route = theme.matchRoute(location.pathname, location.search);
     try {
       await theme.mount({
         root,
@@ -87,12 +89,48 @@ class Engine {
       });
       this.theme = theme;
       this.state = "active";
-      if (route) theme.onRouteChange(route, this.router.href);
+      startHostGuard(() => this.handleHostRemoved());
+      // 挂载完成后再解析路由（挂载期间可能已发生导航）
+      const route = theme.matchRoute(location.pathname, location.search);
+      if (route) {
+        theme.onRouteChange(route, this.router.href);
+      } else {
+        // 首屏即处于未映射路由（聚合页/登录/设置等）→ 回退原版
+        await this.escapeHatch();
+      }
     } catch (e) {
       console.error("[2lt] 主题挂载失败，回退原版", e);
       await this.deactivateTheme();
+      hideHost();
+      releaseHostStyle();
       this.state = "fallback";
     }
+  }
+
+  /** 自愈：站点脚本（如 React 水合恢复）清除了宿主节点/接管属性时，重建并重新挂载主题 */
+  private handleHostRemoved() {
+    if (this.fixingHost || this.state !== "active" || !this.theme) return;
+    // 去抖：短时间内被反复清除则放弃重挂，避免与站点清除逻辑死循环
+    const now = Date.now();
+    this.fixCount = now - this.lastFixAt < 10_000 ? this.fixCount + 1 : 1;
+    this.lastFixAt = now;
+    if (this.fixCount > 3) {
+      console.error("[2lt] 宿主节点被站点反复清除，放弃重挂，回退原版界面");
+      void this.escapeHatch();
+      return;
+    }
+    this.fixingHost = true;
+    console.warn("[2lt] 宿主节点被站点清除，重建并重新挂载主题");
+    const theme = this.theme;
+    void (async () => {
+      try {
+        await this.deactivateTheme(); // 旧 ShadowRoot 已随宿主失联，仅清理主题状态/定时器
+        destroyHost();                // 必须整体重建（新元素才有新 ShadowRoot）
+        await this.activate(theme);
+      } finally {
+        this.fixingHost = false;
+      }
+    })();
   }
 
   private async deactivateTheme() {

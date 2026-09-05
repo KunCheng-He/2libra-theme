@@ -206,7 +206,7 @@ export interface DataApi {
   getNodeTree(): Promise<NodeGroup[]>;
   listLatest(page: number, limit: number): Promise<Paged<PostSummary>>;
   listByParent(parentSlug: string, page: number, limit: number): Promise<Paged<PostSummary>>;
-  listByChild(nodeId: string, page: number, limit: number): Promise<Paged<PostSummary>>;
+  listByChild(parentSlug: string, nodeId: string, page: number, limit: number): Promise<Paged<PostSummary>>;
   getPost(shortId: string): Promise<PostDetail>;
   getComments(shortId: string, page: number, limit: number): Promise<Paged<CommentNode>>;
   createComment(input: CreateCommentInput): Promise<CommentNode>;

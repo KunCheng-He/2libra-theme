@@ -11,7 +11,9 @@ export function createRouter(): RouterApi {
   let current = location.pathname + location.search;
 
   const emit = () => {
-    current = location.pathname + location.search;
+    const url = location.pathname + location.search;
+    if (url === current) return; // 多来源触发去重（isolated 包装 / 站点软导航轮询）
+    current = url;
     for (const fn of listeners) {
       try {
         fn(current);
@@ -37,6 +39,9 @@ export function createRouter(): RouterApi {
     wrap("pushState");
     wrap("replaceState");
     window.addEventListener("popstate", emit);
+    // 站点自身（MAIN world）的软导航不经过隔离世界的包装，轮询兜底：
+    // 回退态下用户点击原版链接回到受支持路由时，可自动重新接管
+    setInterval(emit, 250);
   };
 
   ensureInstalled();

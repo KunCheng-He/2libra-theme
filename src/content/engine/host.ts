@@ -6,6 +6,7 @@ const ON_ATTR = "data-2lt-on";
 let host: HTMLDivElement | null = null;
 let shadow: ShadowRoot | null = null;
 let hostSheet: CSSStyleSheet | null = null;
+let guard: MutationObserver | null = null;
 
 /** 注入接管样式：隐藏 Next 原应用（保留运行） */
 export function adoptHostStyle() {
@@ -38,6 +39,7 @@ export function showHost() {
 }
 
 export function hideHost() {
+  stopHostGuard();
   document.documentElement.removeAttribute(ON_ATTR);
   if (host) host.style.display = "none";
 }
@@ -51,4 +53,21 @@ export function destroyHost() {
 
 export function getShadowRoot(): ShadowRoot | null {
   return shadow;
+}
+
+/** 存活监护：站点脚本（如 React 水合恢复）会清除 <html> 下的外来节点与属性；被清除时回调引擎重建 */
+export function startHostGuard(onRemoved: () => void) {
+  stopHostGuard();
+  guard = new MutationObserver(() => {
+    const sheetGone = !!hostSheet && !document.adoptedStyleSheets.includes(hostSheet);
+    if (!host || !host.isConnected || !document.documentElement.hasAttribute(ON_ATTR) || sheetGone) {
+      onRemoved();
+    }
+  });
+  guard.observe(document.documentElement, { childList: true, attributes: true });
+}
+
+export function stopHostGuard() {
+  guard?.disconnect();
+  guard = null;
 }
