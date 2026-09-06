@@ -1,4 +1,15 @@
-import type { Author, ChatMessage, CommentNode, NodeGroup, PostDetail, PostSummary, ThemeRoute, UserInfo } from "../../../shared/types";
+import type {
+  Author,
+  ChatMessage,
+  CommentNode,
+  NodeGroup,
+  PostDetail,
+  PostSummary,
+  ReactionSummary,
+  RewardItem,
+  ThemeRoute,
+  UserInfo,
+} from "../../../shared/types";
 
 export interface ReplyTarget {
   id: string;
@@ -106,9 +117,13 @@ export const initialState = (): AppState => ({
 /** 评论树 → 消息流（引用回复气泡） */
 export function flattenComments(items: CommentNode[]): ChatMessage[] {
   const out: ChatMessage[] = [];
-  const walk = (c: CommentNode, depth: number) => {
+  // 站点表态定位楼层公式：parent.parent.floor || parent.floor || floor || 0（祖先楼层链自上而下）
+  const walk = (c: CommentNode, depth: number, ancestorFloors: number[]) => {
     if (c.is_deleted && !c.content) return;
     const parent = c.parent;
+    const gp = ancestorFloors[ancestorFloors.length - 2] ?? 0;
+    const p = ancestorFloors[ancestorFloors.length - 1] ?? 0;
+    const locatedFloor = gp || p || c.floor || 0;
     out.push({
       kind: "comment",
       id: c.id,
@@ -127,10 +142,17 @@ export function flattenComments(items: CommentNode[]): ChatMessage[] {
             }
           : null,
       isSelf: false,
+      reactions: (c.reactions_summary ?? []) as ReactionSummary[],
+      myReactions: c.my_reactions ?? [],
+      rewards: c.rewards ?? [],
+      rewardPool: c.reward_pool_rewards?.[0]?.amount ?? 0,
+      locatedFloor,
+      aliasId: c.alias_id ?? null,
     });
-    for (const child of c.children ?? []) walk(child, depth + 1);
+    const chain = [...ancestorFloors, c.floor ?? 0];
+    for (const child of c.children ?? []) walk(child, depth + 1, chain);
   };
-  for (const item of items) walk(item, 0);
+  for (const item of items) walk(item, 0, []);
   return out;
 }
 
@@ -147,6 +169,12 @@ export function buildMessages(post: PostDetail, comments: CommentNode[], selfId:
       floor: 0,
       quote: null,
       isSelf: !!selfId && post.author?.id === selfId,
+      reactions: (post.reactions_summary ?? []) as ReactionSummary[],
+      myReactions: post.my_reactions ?? [],
+      rewards: post.rewards ?? [],
+      rewardPool: 0,
+      locatedFloor: 0,
+      aliasId: null,
     },
     ...flattenComments(comments).map((m) => ({ ...m, isSelf: !!selfId && m.author?.id === selfId })),
   ];
@@ -161,6 +189,12 @@ export function buildMessages(post: PostDetail, comments: CommentNode[], selfId:
       floor: 0,
       quote: null,
       isSelf: !!selfId && post.author?.id === selfId,
+      reactions: [],
+      myReactions: [],
+      rewards: [],
+      rewardPool: 0,
+      locatedFloor: 0,
+      aliasId: null,
     });
   }
   msgs.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());

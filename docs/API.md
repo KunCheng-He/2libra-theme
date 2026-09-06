@@ -21,10 +21,12 @@
 | GET | `/api/posts/latest/list` | `page, limit` | 最新帖子（首页流，匿名可用） |
 | GET | `/api/posts/hot/list` | - | 热帖 |
 | GET | `/api/posts/list` | `page, limit, node_id?, parent_slug?, sort?, rss?, dimensions?, tag?` | 节点过滤列表（**必须带** `node_id` 或 `parent_slug`，否则匿名空结果） |
-| GET | `/api/posts/{short_id}` | - | 帖子详情：`content`(markdown) + `content_html`(不可靠) + `postscripts`(后记) + `vote/reactions` 等 |
-| GET | `/api/comments/list` | `post_short_id, page, limit` | **嵌套**评论树：`items[]`，每项含 `children[]`、`parent`、`floor` |
-| GET | `/api/comments/list/flat` | 同上 | 平铺列表 |
+| GET | `/api/posts/{short_id}` | - | 帖子详情：`content`(markdown) + `content_html`(不可靠) + `postscripts`(后记) + `vote/reactions` 等。表态相关：`reactions_summary`(`[{emoji,count}]`)、`my_reactions`(string[])、`rewards`(打赏记录)、`is_anonymous_author`；`node.main_emojis`/`node.sub_emojis` 为该节点可用表情 |
+| GET | `/api/comments/list` | `post_short_id, page, limit` | **嵌套**评论树：`items[]`，每项含 `children[]`、`parent`、`floor`，且带 `reactions_summary`/`my_reactions`/`rewards`/`reward_pool_rewards`(金币池中奖) |
 | POST | `/api/comments` | `{ postId, content, parentId, level, replyCommentId, is_anonymous, useFlatComment, aliasId? }` | 发表评论/回复。回复顶层楼层：`parentId=floorId, level=0, replyCommentId=floorId`；回复嵌套楼层：`parentId=顶层floorId, level=3, replyCommentId=嵌套id`（与站点前端行为一致） |
+| POST | `/api/post-reactions/{postId}` | `{ postId, emoji, recUserId, path, postTitle, nodeId }` | **帖子表情表态（官方接口，金币扣用）**。body 需含 `postId`（服务端从 body 校验 ID，仅 URL 传参会 400「ID必须是字符串」）。成功：`{c:0,d:{type:"add"}}`（`d.type` 非空即成功）。❤️/👍 表态他人帖子扣 45 金币（对方 +24），其余表情扣 20。匿名帖不可表态。站点行为：已表态不可重复/撤销 |
+| POST | `/api/comment-reactions/{commentId}` | `{ commentId, emoji, recUserId, path, comment, locatedFloor, nodeId }` | **评论表情表态**。`comment`=评论前 100 字（通知预览）；`locatedFloor`=定位楼层（站点公式 `parent.parent.floor || parent.floor || floor || 0`）。❤️/👍 扣 35（对方 +16），其余扣 20 |
+| POST | `/api/rewards` | `{ type, amount, post_id, comment_id?, path }` | **打赏**（100–500 金币，步进 50；`type`: `post`/`comment`；`path` 评论时为 `/post/{slug}/{sid}?commentId={id}`）。成功 `d:"ok"` |
 | POST | `/api/posts` | `{ title, content, node_id, title_prefix?, ... }` | 发帖，最小 `{title, content, node_id}` |
 | GET | `/api/search` | `q` | 站内搜索（匿名返回 `d:null`，需登录） |
 | GET | `/api/users/info` | - | 当前用户信息 |
@@ -67,6 +69,15 @@ https://r2.2libra.com/avatars/{md5(user_id)[0:4]}/{md5(user_id)[4:8]}/{user_id}.
 - `ext`/`ts` 取自 `author.avatar_url`（格式 `jpg_1769303620813`，`_` 分隔）。
 - 匿名（alias）头像目录为 `avatars/aliases/`。
 - 实现在 `src/content/data/api.ts#avatarUrl`（自实现 md5：`src/content/data/md5.ts`）。
+
+## 表态 / 打赏（reactions & rewards）
+
+- **金币成本常量**（站点 `COIN_COST`）：`canGetCoinEmojis = ["👍","❤️"]`；post `{send:-20,get:0}`、comment `{send:-20,get:0}`、specialPost `{send:-45,get:24}`、specialComment `{send:-35,get:16}`（特殊表情仅在表态**他人**内容时对方得金币，自己内容仅扣钱）。
+- **成功判定**：`d.type` 非空（如 `{type:"add"}`）；失败 `m` 为可展示文案。
+- **匿名帖**：`post.is_anonymous_author` 为真时所有人不可表态/打赏（站点 toast「匿名贴发布者不能对匿名贴发布表情」）。
+- **重复表态**：站点前端已表态的 emoji 点击为 no-op（`toggleReaction` 虽可撤销，但 UI 层不触发）。
+- **打赏去重**：`rewards` 中已存在本人记录则隐藏打赏入口；给自己内容/自己别名（`localStorage["selected-alias"]`）打赏也被隐藏。
+- 展示：`reactions_summary.filter(count>0)` 渲染 chips；打赏 chip 显示打赏者头像（最多 20 个，堆叠）+ 金币总额（金色）；评论 `reward_pool_rewards[0].amount` 渲染 💰 金币池 chip。实现见 `src/content/themes/wecom/components/reactions.ts`。
 
 ## 站点技术栈要点
 

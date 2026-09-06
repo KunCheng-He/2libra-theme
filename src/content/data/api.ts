@@ -10,6 +10,9 @@ import type {
   PostDetail,
   PostSummary,
   SiteNotification,
+  ToggleCommentReactionInput,
+  TogglePostReactionInput,
+  CreateRewardInput,
   UserInfo,
 } from "../../shared/types";
 import { PAGE_SIZE_COMMENTS, PAGE_SIZE_POSTS, R2_ORIGIN } from "../../shared/constants";
@@ -89,6 +92,41 @@ export const dataApi: DataApi = {
       title: input.title,
       content: input.content,
       node_id: input.node_id,
+    });
+  },
+
+  async togglePostReaction(input: TogglePostReactionInput): Promise<{ type?: string } | null> {
+    // 官方表态接口（金币扣用），成功以 d.type 非空为准（与站点前端一致）
+    // 站点前端将含 postId 的完整对象作为 body 提交，服务端从 body 校验 ID
+    return post<{ type?: string } | null>(`/api/post-reactions/${encodeURIComponent(input.postId)}`, {
+      postId: input.postId,
+      emoji: input.emoji,
+      recUserId: input.recUserId,
+      path: input.path,
+      postTitle: input.postTitle,
+      nodeId: input.nodeId,
+    });
+  },
+
+  async toggleCommentReaction(input: ToggleCommentReactionInput): Promise<{ type?: string } | null> {
+    return post<{ type?: string } | null>(`/api/comment-reactions/${encodeURIComponent(input.commentId)}`, {
+      commentId: input.commentId,
+      emoji: input.emoji,
+      recUserId: input.recUserId,
+      path: input.path,
+      comment: input.comment,
+      locatedFloor: input.locatedFloor,
+      nodeId: input.nodeId,
+    });
+  },
+
+  async createReward(input: CreateRewardInput): Promise<unknown> {
+    return post<unknown>("/api/rewards", {
+      type: input.type,
+      amount: input.amount,
+      post_id: input.postId,
+      comment_id: input.commentId,
+      path: input.path,
     });
   },
 

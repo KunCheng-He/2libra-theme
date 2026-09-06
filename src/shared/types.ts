@@ -37,10 +37,33 @@ export interface Author {
   equipped_badges?: { badge: { name: string; icon_url: string } }[];
 }
 
+/** 表情表态汇总（GET /api/posts/{id}、/api/comments/list 的 reactions_summary） */
+export interface ReactionSummary {
+  emoji: string;
+  count: number;
+}
+
+/** 打赏记录（rewards 数组项） */
+export interface RewardItem {
+  id: string;
+  amount: number;
+  user: Author;
+  created_at?: string;
+  type?: string;
+}
+
 export interface PostSummary {
   id: string;
   short_id: string;
-  node: { id: string; name: string; slug: string; parent_slug: string };
+  node: {
+    id: string;
+    name: string;
+    slug: string;
+    parent_slug: string;
+    /** 节点可用表情（表态/打赏选择条） */
+    main_emojis?: string[];
+    sub_emojis?: string[];
+  };
   title: string;
   author: Author;
   created_at: string;
@@ -75,6 +98,12 @@ export interface PostDetail extends PostSummary {
   views: number;
   type: string;
   postscripts?: Postscript[];
+  /** 匿名帖（匿名帖作者不可被表态/打赏） */
+  is_anonymous_author?: boolean;
+  reactions_summary?: ReactionSummary[] | null;
+  /** 当前用户已表态的 emoji 列表 */
+  my_reactions?: string[] | null;
+  rewards?: RewardItem[] | null;
 }
 
 export interface CommentNode {
@@ -93,6 +122,11 @@ export interface CommentNode {
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
+  reactions_summary?: ReactionSummary[] | null;
+  my_reactions?: string[] | null;
+  rewards?: RewardItem[] | null;
+  /** 金币池中奖展示（rewards 之外） */
+  reward_pool_rewards?: { amount: number }[] | null;
 }
 
 export interface UserInfo extends Author {
@@ -161,6 +195,49 @@ export interface ChatMessage {
   /** 引用回复目标（父楼层） */
   quote?: { name: string; floor: number; content: string; parentId: string } | null;
   isSelf: boolean;
+  /** 已有表情表态（含数量） */
+  reactions: ReactionSummary[];
+  /** 当前用户已表态的 emoji */
+  myReactions: string[];
+  /** 已有打赏 */
+  rewards: RewardItem[];
+  /** 金币池中奖金额（评论） */
+  rewardPool: number;
+  /** 评论表态通知定位楼层（站点公式 grandparent.floor || parent.floor || floor || 0） */
+  locatedFloor: number;
+  /** 匿名别名 id（打赏/表态自身别名需屏蔽，与站点 selected-alias 逻辑一致） */
+  aliasId: string | null;
+}
+
+/** 表态打标请求（POST /api/post-reactions/{postId}） */
+export interface TogglePostReactionInput {
+  postId: string;
+  emoji: string;
+  recUserId: string;
+  path: string;
+  postTitle: string;
+  nodeId: string;
+}
+
+/** 表态打标请求（POST /api/comment-reactions/{commentId}） */
+export interface ToggleCommentReactionInput {
+  commentId: string;
+  emoji: string;
+  recUserId: string;
+  path: string;
+  /** 评论摘要（前 100 字，通知预览用） */
+  comment: string;
+  locatedFloor: number;
+  nodeId: string;
+}
+
+/** 打赏请求（POST /api/rewards） */
+export interface CreateRewardInput {
+  type: "post" | "comment";
+  amount: number;
+  postId: string;
+  commentId?: string;
+  path: string;
 }
 
 export interface CreateCommentInput {
@@ -211,6 +288,12 @@ export interface DataApi {
   getComments(shortId: string, page: number, limit: number): Promise<Paged<CommentNode>>;
   createComment(input: CreateCommentInput): Promise<CommentNode>;
   createPost(input: CreatePostInput): Promise<PostDetail>;
+  /** 帖子表态（官方接口，金币扣用；成功返回 d.type 非空） */
+  togglePostReaction(input: TogglePostReactionInput): Promise<{ type?: string } | null>;
+  /** 评论表态（官方接口，金币扣用；成功返回 d.type 非空） */
+  toggleCommentReaction(input: ToggleCommentReactionInput): Promise<{ type?: string } | null>;
+  /** 打赏（官方接口；amount 100–500，步进 50） */
+  createReward(input: CreateRewardInput): Promise<unknown>;
   search(q: string): Promise<{ posts?: SearchResultItem[]; users?: SearchResultItem[]; nodes?: SearchResultItem[] } | null>;
   getCurrentUser(): Promise<UserInfo | null>;
   getUnreadCount(): Promise<number | null>;

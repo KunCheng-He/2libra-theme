@@ -1411,3 +1411,233 @@ img {
     transform: none;
   }
 }
+
+/* ================= 表情表态 / 打赏 ================= */
+/* 表态行：气泡下方，与原站展示形式一致（emoji+数量 chips / 打赏头像 / 金币池） */
+.wc-rc-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 0 2px;
+}
+.wc-rc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: #f0f1f2;
+  border: 1px solid var(--wc-border);
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.wc-rc-chip:hover {
+  background: var(--wc-blue-soft);
+  border-color: #cfe6fd;
+}
+.wc-rc-chip.is-mine {
+  background: var(--wc-blue-soft);
+  border-color: #cfe6fd;
+  cursor: default;
+}
+.wc-rc-emoji {
+  font-size: 13px;
+  line-height: 1;
+}
+.wc-rc-count {
+  font-size: 11px;
+  color: var(--wc-text-2);
+  line-height: 1;
+}
+.wc-rc-count.is-gold {
+  color: #c7871c;
+  font-weight: 600;
+}
+.wc-rc-chip.is-reward {
+  padding-left: 2px;
+  cursor: default;
+}
+.wc-rc-chip.is-reward:hover {
+  background: #fdf6e7;
+  border-color: #f3e3bd;
+}
+.wc-rc-avs {
+  display: inline-flex;
+  align-items: center;
+}
+.wc-rc-av {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid #fff;
+  cursor: pointer;
+  position: relative;
+  transition: margin 0.2s;
+  background: #fff;
+}
+.wc-rc-av + .wc-rc-av {
+  margin-left: -7px;
+}
+.wc-rc-row:hover .wc-rc-av + .wc-rc-av {
+  margin-left: 1px;
+}
+.wc-rc-chip.is-pool {
+  background: #fdf6e7;
+  border-color: #f3e3bd;
+  color: #c7871c;
+  cursor: default;
+}
+.wc-rc-chip.is-pool:hover {
+  background: #fdf6e7;
+  border-color: #f3e3bd;
+}
+
+/* 悬浮提示（data-tip，替代 daisyUI tooltip） */
+.wc-rc-chip[data-tip]:hover::after,
+.wc-rc-opt[data-tip]:hover::after,
+.wc-rc-av[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 30, 0.92);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 4px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+  z-index: 60;
+  pointer-events: none;
+}
+
+/* 右键菜单 / 悬浮层 */
+.wc-rc-float {
+  position: fixed;
+  z-index: 300;
+}
+.wc-rc-menu {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  padding: 6px;
+  min-width: 120px;
+  animation: wc-rc-in 0.12s ease-out;
+}
+@keyframes wc-rc-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.wc-rc-strip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+}
+.wc-rc-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--wc-border-strong);
+  margin: 0 5px;
+  flex: none;
+}
+.wc-rc-opt {
+  min-width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s;
+  user-select: none;
+}
+.wc-rc-opt:hover {
+  background: var(--wc-blue-soft);
+}
+.wc-rc-opt.is-mine {
+  background: var(--wc-blue-soft);
+}
+.wc-rc-opt.is-disabled {
+  cursor: default;
+}
+.wc-rc-reward-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wc-blue);
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.wc-rc-reward-btn:hover {
+  background: var(--wc-blue-soft);
+}
+.wc-rc-menu-div {
+  height: 1px;
+  background: var(--wc-border);
+  margin: 5px 4px;
+}
+.wc-rc-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--wc-text);
+  padding: 7px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.wc-rc-menu-item:hover {
+  background: #f2f3f5;
+}
+.wc-rc-reward-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+}
+.wc-rc-range {
+  width: 140px;
+  accent-color: var(--wc-blue);
+}
+.wc-rc-reward-amount {
+  font-size: 12px;
+  color: var(--wc-text-2);
+  white-space: nowrap;
+}
+.wc-rc-reward-ok {
+  font-size: 12px;
+  color: #fff;
+  background: var(--wc-blue);
+  border: none;
+  border-radius: 5px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.wc-rc-reward-ok:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.wc-rc-reward-ok:hover:not(:disabled) {
+  background: var(--wc-blue-deep);
+}

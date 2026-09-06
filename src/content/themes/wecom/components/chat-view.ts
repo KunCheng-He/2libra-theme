@@ -4,6 +4,7 @@ import { el, clear, on } from "./el";
 import { icon } from "./ui";
 import { copyText, fallbackAvatar, formatDivider, formatFloorDate, snippet } from "../../../data/format";
 import { renderMarkdown } from "../../../data/markdown";
+import { openReactionMenu, openReactionMenuAnchored, renderReactionRow, type ReactionEnv, type ReactionKind } from "./reactions";
 import { TIME_DIVIDER_GAP_MIN } from "../../../../shared/constants";
 
 export interface ChatCallbacks {
@@ -16,6 +17,9 @@ export interface ChatCallbacks {
   onLoadComments(): void;
   onDecorate(name: string): void;
   onCopy(text: string): void;
+  /** 表态环境（官方接口 + 消息行刷新，由主题接线） */
+  reaction(): ReactionEnv;
+  onOpenUser(name: string): void;
 }
 
 const time = (iso: string) => new Date(iso).getTime();
@@ -91,8 +95,34 @@ export function renderChatHead(head: HTMLElement, post: PostDetail, cb: ChatCall
   head.append(actions);
 }
 
-function msgBubbleEl(m: ChatMessage, cb: ChatCallbacks, user: UserInfo | null): HTMLElement {
+/** 消息类型 → 表态对象类型（后记无表态） */
+export function reactionKindOf(m: ChatMessage): ReactionKind | null {
+  return m.kind === "post" ? "post" : m.kind === "comment" ? "comment" : null;
+}
+
+/** 回复动作（工具条与右键菜单共用） */
+function replyAction(m: ChatMessage, cb: ChatCallbacks) {
+  if (m.kind === "comment") {
+    const target: ReplyTarget = {
+      id: m.id,
+      floor: m.floor,
+      name: m.name,
+      content: m.content,
+      // 顶层楼层：parentId=本楼层；嵌套回复：parentId=父楼层（与站点提交链路一致）
+      parentId: m.quote ? m.quote.parentId : m.id,
+      level: m.quote ? 3 : 0,
+      replyCommentId: m.id,
+    };
+    cb.onReply(target);
+  } else {
+    cb.onReply(null);
+  }
+}
+
+export function buildMessageRow(m: ChatMessage, cb: ChatCallbacks, user: UserInfo | null): HTMLElement {
+  const kind = reactionKindOf(m);
   const wrap = el("div", { class: `wc-msg${m.isSelf ? " is-self" : ""}` });
+  wrap.dataset.mid = m.id;
 
   const av = document.createElement("img");
   av.className = "wc-avatar";
@@ -129,26 +159,34 @@ function msgBubbleEl(m: ChatMessage, cb: ChatCallbacks, user: UserInfo | null): 
   bubble.append(content);
   col.append(bubble);
 
+  // 表态行（已有表情/打赏/金币池，与原站展示形式一致）
+  const rcRow = renderReactionRow(cb.reaction(), m, kind);
+  if (rcRow) col.append(rcRow);
+
+  const menuActions = {
+    onReply: () => replyAction(m, cb),
+    onCopy: async () => {
+      await copyText(m.content);
+    },
+  };
+
+  // 右键气泡 → 表情回复菜单（表情选择条 + 引用回复 + 复制）
+  on(bubble, "contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openReactionMenu(cb.reaction(), m, kind, e.clientX, e.clientY, menuActions);
+  });
+
   const tools = el("div", { class: "wc-msg-tools" });
+  const emojiTool = el("span", { class: "wc-msg-tool" });
+  emojiTool.append(icon("smile"), "表情");
+  on(emojiTool, "click", () => {
+    openReactionMenuAnchored(cb.reaction(), m, kind, emojiTool.getBoundingClientRect(), menuActions);
+  });
+  tools.append(emojiTool);
   const reply = el("span", { class: "wc-msg-tool" });
   reply.append(icon("quote"), "引用回复");
-  on(reply, "click", () => {
-    if (m.kind === "comment") {
-      const target: ReplyTarget = {
-        id: m.id,
-        floor: m.floor,
-        name: m.name,
-        content: m.content,
-        // 顶层楼层：parentId=本楼层；嵌套回复：parentId=父楼层（与站点提交链路一致）
-        parentId: m.quote ? m.quote.parentId : m.id,
-        level: m.quote ? 3 : 0,
-        replyCommentId: m.id,
-      };
-      cb.onReply(target);
-    } else {
-      cb.onReply(null);
-    }
-  });
+  on(reply, "click", () => replyAction(m, cb));
   const copy = el("span", { class: "wc-msg-tool" });
   copy.append(icon("doc"), "复制");
   on(copy, "click", async () => {
@@ -204,7 +242,7 @@ export function renderMessages(
       container.append(el("div", { class: "wc-divider" }, el("span", null, formatDivider(m.createdAt))));
     }
     lastT = t;
-    container.append(msgBubbleEl(m, cb, state.user));
+    container.append(buildMessageRow(m, cb, state.user));
   }
 
   if (state.commentsPage < state.commentsTotalPages) {

@@ -19,8 +19,10 @@ import {
   renderChatHead,
   scrollMessagesToBottom,
   watermarkEl,
+  buildMessageRow,
   type ChatCallbacks,
 } from "./components/chat-view";
+import { closeReactionFloat } from "./components/reactions";
 import { renderMembersPanel, type MembersCallbacks } from "./components/members-panel";
 import { renderNewChat, removeNewChat } from "./components/new-chat";
 import { renderProfileCard, removeProfileCard } from "./components/profile-card";
@@ -325,6 +327,16 @@ class WecomTheme implements ThemePack {
       onCopy: (text) => {
         if (this.ctx) toast(this.ctx.root, text ? "已复制" : "复制失败");
       },
+      reaction: () => ({
+        root: this.ctx!.root,
+        dataApi: this.data,
+        post: this.state.post!,
+        user: this.state.user,
+        avatarUrl: (author) => this.data.avatarUrl(author),
+        refreshMessage: (id) => this.refreshMessageRow(id),
+        onOpenUser: (name) => this.router.push(`/user/${encodeURIComponent(name)}/about`),
+      }),
+      onOpenUser: (name) => this.router.push(`/user/${encodeURIComponent(name)}/about`),
     };
   }
 
@@ -612,6 +624,12 @@ class WecomTheme implements ThemePack {
         floor,
         quote: target ? { name: target.name, floor: target.floor, content: target.content, parentId: "" } : null,
         isSelf: true,
+        reactions: [],
+        myReactions: [],
+        rewards: [],
+        rewardPool: 0,
+        locatedFloor: 0,
+        aliasId: null,
       });
       post.comment_count += 1;
       this.renderChat();
@@ -665,6 +683,7 @@ class WecomTheme implements ThemePack {
     this.errorStreak = 0;
     removeNewChat(this.ctx!.root);
     removeProfileCard(this.ctx!.root);
+    closeReactionFloat(this.ctx!.root);
 
     switch (route.type) {
       case "home": {
@@ -811,6 +830,16 @@ class WecomTheme implements ThemePack {
     if (!this.refs?.composerHost) return;
     const ta = renderComposer(this.refs.composerHost, this.state, this.chatCallbacks());
     void ta;
+  }
+
+  /** 表态/打赏乐观更新后，仅重建该消息行（不整流重绘，避免滚动位置跳动） */
+  private refreshMessageRow(id: string) {
+    const host = this.refs?.msgsHost;
+    if (!host || !this.ctx) return;
+    const row = host.querySelector(`.wc-msg[data-mid="${CSS.escape(id)}"]`);
+    const m = this.state.messages.find((x) => x.id === id);
+    if (!row || !m) return;
+    row.replaceWith(buildMessageRow(m, this.chatCallbacks(), this.state.user));
   }
 
   private rerenderComposer() {

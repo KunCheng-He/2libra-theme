@@ -27,3 +27,18 @@ export const TIME_DIVIDER_GAP_MIN = 10;
 
 /** 企微蓝 */
 export const WECOM_BLUE = "#0082ef";
+
+/* ============ 表态 / 打赏（逆向自站点 COIN_COST / REWARD 常量） ============ */
+
+/** 表态金币成本：特殊表情（❤️/👍）表态他人内容时扣得更多、对方得金币 */
+export const REACTION_COST = {
+  /** 可给对方带来金币收益的表情 */
+  canGetCoinEmojis: ["👍", "❤️"],
+  post: { send: -20, get: 0 },
+  comment: { send: -20, get: 0 },
+  specialPost: { send: -45, get: 24 },
+  specialComment: { send: -35, get: 16 },
+} as const;
+
+/** 打赏金额范围（滑动选择） */
+export const REWARD_LIMITS = { min: 100, max: 500, step: 50 } as const;
