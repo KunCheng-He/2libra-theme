@@ -104,6 +104,8 @@ export interface PostDetail extends PostSummary {
   /** 当前用户已表态的 emoji 列表 */
   my_reactions?: string[] | null;
   rewards?: RewardItem[] | null;
+  /** 正文用到的站内表情映射（":code:" → 图片路径） */
+  emojis?: Record<string, string> | null;
 }
 
 export interface CommentNode {
@@ -127,6 +129,8 @@ export interface CommentNode {
   rewards?: RewardItem[] | null;
   /** 金币池中奖展示（rewards 之外） */
   reward_pool_rewards?: { amount: number }[] | null;
+  /** 评论用到的站内表情映射（":code:" → 图片路径） */
+  emojis?: Record<string, string> | null;
 }
 
 export interface UserInfo extends Author {
@@ -207,6 +211,8 @@ export interface ChatMessage {
   locatedFloor: number;
   /** 匿名别名 id（打赏/表态自身别名需屏蔽，与站点 selected-alias 逻辑一致） */
   aliasId: string | null;
+  /** 本条消息的站内表情映射（":code:" → 图片路径），渲染气泡时替换 :code: */
+  emojiMap: Record<string, string> | null;
 }
 
 /** 表态打标请求（POST /api/post-reactions/{postId}） */

@@ -3,6 +3,8 @@
  * 先整体 HTML 转义，再叠加白名单语法，杜绝 XSS。
  */
 
+import { EMOJI_CODE_RE, emojiSrc } from "./emoji";
+
 export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -20,14 +22,19 @@ function linkify(url: string): string | null {
   return u.replace(/"/g, "%22");
 }
 
-/** 行内语法：图片、链接、加粗、斜体、删除线、行内代码 */
-function renderInline(escaped: string): string {
+/** 行内语法：图片、链接、加粗、斜体、删除线、行内代码、站内表情 */
+function renderInline(escaped: string, emojiMap?: Record<string, string> | null): string {
   let s = escaped;
   // 行内代码（优先，占位保护）
   const codes: string[] = [];
   s = s.replace(/`([^`\n]+)`/g, (_, c) => {
     codes.push(c);
     return `\u0000C${codes.length - 1}\u0000`;
+  });
+  // 站内表情 :code:（仅替换目录中存在的，避免误伤普通文本；对齐站点 medium ≈ 2em）
+  s = s.replace(EMOJI_CODE_RE, (whole, name: string) => {
+    const src = emojiSrc(`:${name}:`, emojiMap);
+    return src ? `<img class="wc-md-emoji" src="${src}" alt=":${name}:" loading="lazy">` : whole;
   });
   // 图片 ![alt](url)
   s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_, alt: string, url: string) => {
@@ -48,7 +55,7 @@ function renderInline(escaped: string): string {
   return s;
 }
 
-export function renderMarkdown(src: string): string {
+export function renderMarkdown(src: string, emojiMap?: Record<string, string> | null): string {
   const lines = escapeHtml(src).split(/\r?\n/);
   const out: string[] = [];
   let para: string[] = [];
@@ -59,21 +66,23 @@ export function renderMarkdown(src: string): string {
 
   const flushPara = () => {
     if (para.length) {
-      out.push(`<p class="wc-md-p">${para.map(renderInline).join("<br>")}</p>`);
+      out.push(`<p class="wc-md-p">${para.map((l) => renderInline(l, emojiMap)).join("<br>")}</p>`);
       para = [];
     }
   };
   const flushList = () => {
     if (list) {
       out.push(
-        `<${list.type} class="wc-md-list">` + list.items.map((i) => `<li>${renderInline(i)}</li>`).join("") + `</${list.type}>`,
+        `<${list.type} class="wc-md-list">` +
+          list.items.map((i) => `<li>${renderInline(i, emojiMap)}</li>`).join("") +
+          `</${list.type}>`,
       );
       list = null;
     }
   };
   const flushQuote = () => {
     if (quote.length) {
-      out.push(`<blockquote class="wc-md-quote">${quote.map(renderInline).join("<br>")}</blockquote>`);
+      out.push(`<blockquote class="wc-md-quote">${quote.map((l) => renderInline(l, emojiMap)).join("<br>")}</blockquote>`);
       quote = [];
     }
   };
@@ -111,7 +120,7 @@ export function renderMarkdown(src: string): string {
     const h = line.match(/^(#{1,6})\s+(.*)$/);
     if (h) {
       flushAll();
-      out.push(`<p class="wc-md-h"><strong>${renderInline(h[2])}</strong></p>`);
+      out.push(`<p class="wc-md-h"><strong>${renderInline(h[2], emojiMap)}</strong></p>`);
       continue;
     }
     // hr
@@ -151,4 +160,12 @@ export function renderMarkdown(src: string): string {
   flushAll();
   void codeLang;
   return out.join("");
+}
+
+/** 纯文本（如引用预览）中的 :code: → 行内表情 <img>（先转义再替换，输出安全 HTML） */
+export function renderEmojiHtml(text: string): string {
+  return escapeHtml(text).replace(EMOJI_CODE_RE, (whole, name: string) => {
+    const src = emojiSrc(`:${name}:`);
+    return src ? `<img class="wc-md-emoji" src="${src}" alt=":${name}:" loading="lazy">` : whole;
+  });
 }

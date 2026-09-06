@@ -10,6 +10,7 @@ import type {
   ThemeRoute,
   UserInfo,
 } from "../../../shared/types";
+import { learnEmojis } from "../../../content/data/emoji";
 
 export interface ReplyTarget {
   id: string;
@@ -120,6 +121,8 @@ export function flattenComments(items: CommentNode[]): ChatMessage[] {
   // 站点表态定位楼层公式：parent.parent.floor || parent.floor || floor || 0（祖先楼层链自上而下）
   const walk = (c: CommentNode, depth: number, ancestorFloors: number[]) => {
     if (c.is_deleted && !c.content) return;
+    // 学习评论自带表情映射，供引用预览等无映射场景复用
+    learnEmojis(c.emojis);
     const parent = c.parent;
     const gp = ancestorFloors[ancestorFloors.length - 2] ?? 0;
     const p = ancestorFloors[ancestorFloors.length - 1] ?? 0;
@@ -148,6 +151,7 @@ export function flattenComments(items: CommentNode[]): ChatMessage[] {
       rewardPool: c.reward_pool_rewards?.[0]?.amount ?? 0,
       locatedFloor,
       aliasId: c.alias_id ?? null,
+      emojiMap: c.emojis ?? null,
     });
     const chain = [...ancestorFloors, c.floor ?? 0];
     for (const child of c.children ?? []) walk(child, depth + 1, chain);
@@ -158,6 +162,7 @@ export function flattenComments(items: CommentNode[]): ChatMessage[] {
 
 /** 组装完整消息流：楼主 + 楼层 + 后记 */
 export function buildMessages(post: PostDetail, comments: CommentNode[], selfId: string | null): ChatMessage[] {
+  learnEmojis(post.emojis);
   const msgs: ChatMessage[] = [
     {
       kind: "post",
@@ -175,6 +180,7 @@ export function buildMessages(post: PostDetail, comments: CommentNode[], selfId:
       rewardPool: 0,
       locatedFloor: 0,
       aliasId: null,
+      emojiMap: post.emojis ?? null,
     },
     ...flattenComments(comments).map((m) => ({ ...m, isSelf: !!selfId && m.author?.id === selfId })),
   ];
@@ -195,6 +201,7 @@ export function buildMessages(post: PostDetail, comments: CommentNode[], selfId:
       rewardPool: 0,
       locatedFloor: 0,
       aliasId: null,
+      emojiMap: post.emojis ?? null,
     });
   }
   msgs.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());

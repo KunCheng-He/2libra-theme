@@ -55,13 +55,13 @@ export function formatFloorDate(iso: string): string {
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
-/** 内容摘要（去 markdown 记号） */
+/** 内容摘要（去 markdown 记号；保留下划线，避免破坏 :doge_ninja: 等表情记号） */
 export function snippet(md: string, max = 46): string {
   const s = md
     .replace(/```[\s\S]*?```/g, "[代码]")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, "[图片]")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/[#>*`~_-]/g, "")
+    .replace(/[#>*`~-]/g, "")
     .replace(/\s+/g, " ")
     .trim();
   return s.length > max ? s.slice(0, max) + "…" : s;

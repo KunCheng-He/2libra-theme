@@ -23,6 +23,7 @@ import {
   type ChatCallbacks,
 } from "./components/chat-view";
 import { closeReactionFloat } from "./components/reactions";
+import { loadEmojiCatalog } from "../../data/emoji";
 import { renderMembersPanel, type MembersCallbacks } from "./components/members-panel";
 import { renderNewChat, removeNewChat } from "./components/new-chat";
 import { renderProfileCard, removeProfileCard } from "./components/profile-card";
@@ -164,6 +165,7 @@ class WecomTheme implements ThemePack {
     // 数据并行加载
     this.loadNodes();
     this.loadUser();
+    void loadEmojiCatalog();
     void this.loadSessions(true);
   }
 
@@ -629,7 +631,8 @@ class WecomTheme implements ThemePack {
         rewards: [],
         rewardPool: 0,
         locatedFloor: 0,
-        aliasId: null,
+        aliasId: created?.alias_id ?? null,
+        emojiMap: created?.emojis ?? null,
       });
       post.comment_count += 1;
       this.renderChat();

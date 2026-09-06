@@ -3,7 +3,7 @@ import type { AppState, ReplyTarget } from "../state";
 import { el, clear, on } from "./el";
 import { icon } from "./ui";
 import { copyText, fallbackAvatar, formatDivider, formatFloorDate, snippet } from "../../../data/format";
-import { renderMarkdown } from "../../../data/markdown";
+import { renderEmojiHtml, renderMarkdown } from "../../../data/markdown";
 import { openReactionMenu, openReactionMenuAnchored, renderReactionRow, type ReactionEnv, type ReactionKind } from "./reactions";
 import { TIME_DIVIDER_GAP_MIN } from "../../../../shared/constants";
 
@@ -148,13 +148,14 @@ export function buildMessageRow(m: ChatMessage, cb: ChatCallbacks, user: UserInf
   if (m.quote) {
     const quote = el("div", { class: "wc-quote" });
     quote.append(el("span", { class: "wc-quote-name" }, `${m.quote.name}`));
-    const qt = el("span", { class: "wc-quote-text" }, snippet(m.quote.content, 120));
+    const qt = el("span", { class: "wc-quote-text" });
+    qt.innerHTML = renderEmojiHtml(snippet(m.quote.content, 120));
     quote.append(qt);
     on(quote, "click", () => cb.onDecorate("定位原楼层"));
     bubble.append(quote);
   }
   const content = el("div", { class: "wc-msg-content" });
-  content.innerHTML = renderMarkdown(m.content || "（无内容）");
+  content.innerHTML = renderMarkdown(m.content || "（无内容）", m.emojiMap);
   bindContentLinks(content, cb);
   bubble.append(content);
   col.append(bubble);

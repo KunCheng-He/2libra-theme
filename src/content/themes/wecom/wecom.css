@@ -816,6 +816,22 @@ img {
   margin: 4px 0;
   cursor: zoom-in;
 }
+/* 站内表情（:doge_ninja: 等）：行内图片，尺寸对齐原站 medium 档（2em） */
+.wc-md-emoji {
+  display: inline-block;
+  height: 2em;
+  width: auto;
+  max-width: 6.25rem;
+  max-height: 6.25rem;
+  object-fit: contain;
+  vertical-align: -8%;
+  margin: 0 4px;
+}
+.wc-quote-text .wc-md-emoji,
+.wc-md-quote .wc-md-emoji {
+  height: 1.5em;
+  margin: 0 2px;
+}
 .wc-md-link {
   color: var(--wc-blue);
 }
