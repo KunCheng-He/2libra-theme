@@ -157,6 +157,21 @@ export interface SiteNotification {
     flatFloor?: number;
     alias_id?: string;
     alias_name?: string;
+    /* ---- 以下字段逆向自站点通知页渲染逻辑（layout chunk） ---- */
+    /** reply/mention/reaction(comment)/content_check：评论摘要 */
+    commentText?: string;
+    /** reaction：表态对象类型 post/comment */
+    reactionType?: string;
+    /** reaction：表情 → 用户列表（取 key 展示具体表情） */
+    reactions?: Record<string, unknown>;
+    /** get_reward：打赏金额（金币） */
+    amount?: number;
+    /** get_reward：打赏对象类型 post/comment/rss_article */
+    rewardType?: string;
+    /** follow：关注者用户名 */
+    followerUsername?: string;
+    /** 匿名者头像（格式同 author.avatar_url） */
+    alias_avatar_url?: string;
     [key: string]: unknown;
   } | null;
 }

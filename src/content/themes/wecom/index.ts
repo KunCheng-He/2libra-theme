@@ -44,12 +44,12 @@ interface Refs {
   msgsHost: HTMLElement | null;
 }
 
-/** 从通知中提取帖子引用（reply 类走 postShortId，reaction 类走 path） */
+/** 从通知中提取帖子引用（reply 类走 postShortId，reaction/reward 类走 path，后者可能带 ?commentId= 查询串） */
 function postRefOf(n: SiteNotification): { shortId: string; nodeSlug: string } | null {
   const p = n.payload;
   if (!p) return null;
   if (p.postShortId) return { shortId: p.postShortId, nodeSlug: p.postNodeSlug ?? "" };
-  const m = typeof p.path === "string" ? p.path.match(/^\/post\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/) : null;
+  const m = typeof p.path === "string" ? p.path.match(/^\/post\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)(?:\?.*)?$/) : null;
   return m ? { shortId: m[2], nodeSlug: m[1] } : null;
 }
 
@@ -82,11 +82,32 @@ function kindOf(type: string): string {
   }
 }
 
+/** 会话副标题动作描述：在 kindOf 基础上附带表情/金额（逆向自站点通知页渲染逻辑，字段缺失时优雅降级） */
+function kindLabel(n: SiteNotification): string {
+  const base = kindOf(n.type);
+  const p = n.payload ?? {};
+  if (n.type === "reaction") {
+    // payload.reactions 形如 { "👍": [...users] }，取 key 拼接展示
+    const reactions = p.reactions;
+    const emojis =
+      reactions && typeof reactions === "object" && !Array.isArray(reactions)
+        ? Object.keys(reactions as Record<string, unknown>).join("")
+        : "";
+    return `${base}${emojis ? ` ${emojis}` : ""}`.trim();
+  }
+  if (n.type === "get_reward" && typeof p.amount === "number") return `${base} +${p.amount}`.trim();
+  return base;
+}
+
 /** 站点聚合页的第一段（今日/近期热议等），不是节点 slug，不能按帖子路由处理 */
 const AGGREGATE_SEGMENTS = new Set(["hot", "latest", "latest-comments"]);
 
-/** 消息列表只保留帖子会话消息（回复/@我）；点赞、徽章、系统、升级、关注、打赏等通知不进入消息列表 */
-const MESSAGE_TYPES = new Set(["reply", "reply_mention", "mention"]);
+/**
+ * 消息列表聚合范围：能定位回帖子的通知（回复/@我/表情/打赏/收藏）。
+ * 角标来自站点全量未读数，聚合范围必须与其对齐，否则会出现「角标有数但列表为空」。
+ * 仍排除：follow/system/level_up/badge_unlocked 等无法归属到帖子的通知。
+ */
+const MESSAGE_TYPES = new Set(["reply", "reply_mention", "mention", "reaction", "get_reward", "favorite"]);
 
 class WecomTheme implements ThemePack {
   id = "wecom";
@@ -99,6 +120,7 @@ class WecomTheme implements ThemePack {
   private sheets: CSSStyleSheet[] = [];
   private searchInput: HTMLInputElement | null = null;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  private badgeTimer: ReturnType<typeof setInterval> | null = null;
   private cleanup: (() => void)[] = [];
   private errorStreak = 0;
   private listKey = "";
@@ -167,6 +189,15 @@ class WecomTheme implements ThemePack {
     this.loadUser();
     void loadEmojiCatalog();
     void this.loadSessions(true);
+
+    // 角标轮询：登录态下每 60s 校准一次（新通知到达 / 其他端已读均能同步）
+    this.badgeTimer = setInterval(() => {
+      if (this.ctx && this.state.user) void this.refreshUnreadCount();
+    }, 60_000);
+    this.cleanup.push(() => {
+      if (this.badgeTimer) clearInterval(this.badgeTimer);
+      this.badgeTimer = null;
+    });
   }
 
   async unmount(): Promise<void> {
@@ -492,7 +523,7 @@ class WecomTheme implements ThemePack {
             cur.lastAt = n.created_at;
             cur.from = who;
             cur.author = author;
-            cur.kind = kindOf(n.type);
+            cur.kind = kindLabel(n);
           }
         } else {
           map.set(ref.shortId, {
@@ -504,7 +535,7 @@ class WecomTheme implements ThemePack {
             lastAt: n.created_at,
             unread: 1,
             ids: [n.id],
-            kind: kindOf(n.type),
+            kind: kindLabel(n),
           });
         }
       }
@@ -515,16 +546,49 @@ class WecomTheme implements ThemePack {
     this.state.unreadSessions = aggregate((n) => !n.is_read);
     this.state.readSessions = aggregate((n) => !!n.is_read);
     this.paintSessions();
+    // 顺带校准角标，保证与列表同源
+    void this.refreshUnreadCount();
   }
 
   /** 点击未读会话：标记该帖全部通知已读（角标同步减少），并打开帖子 */
-  private async openUnread(s: UnreadSession) {
-    this.state.unreadSessions = this.state.unreadSessions.filter((x) => x.shortId !== s.shortId);
-    if (this.state.unreadFilter) this.paintSessions();
-    if (s.ids.length) {
-      void this.guard(() => this.data.markNotificationsRead(s.ids)).then(() => this.refreshUnreadCount());
-    }
+  private openUnread(s: UnreadSession) {
+    void this.markPostRead(s.shortId, s.ids);
     this.router.push(`/post/${s.nodeSlug || "forum"}/${s.shortId}`);
+  }
+
+  /** 标记已读：失败给出可见提示（不再静默吞错，便于发现接口变化） */
+  private async markRead(ids: string[]): Promise<boolean> {
+    if (!ids.length || !this.ctx) return false;
+    try {
+      await this.data.markNotificationsRead(ids);
+      return true;
+    } catch (e) {
+      if (!this.ctx) return false;
+      const msg = (e as ApiError)?.message ?? "未知错误";
+      toast(this.ctx.root, `已读同步失败：${msg}`);
+      return false;
+    }
+  }
+
+  /** 打开帖子即视为已读（IM 惯例）：清除该帖关联的未读通知并同步角标 */
+  private async markPostRead(shortId: string, knownIds?: string[]) {
+    if (!this.ctx || !this.state.user) return;
+    let ids = knownIds;
+    if (!ids) {
+      ids = this.state.unreadSessions.find((x) => x.shortId === shortId)?.ids;
+    }
+    if (ids) {
+      this.state.unreadSessions = this.state.unreadSessions.filter((x) => x.shortId !== shortId);
+      if (this.state.unreadFilter) this.paintSessions();
+    } else {
+      // 未聚合过通知（如直接从全部列表点开）→ 拉第一页兜底匹配该帖未读项
+      const page = await this.guard(() => this.data.listNotifications(1));
+      ids = (page?.list ?? [])
+        .filter((n) => n && !n.is_read && MESSAGE_TYPES.has(n.type) && postRefOf(n)?.shortId === shortId)
+        .map((n) => n.id);
+    }
+    if (!ids.length) return;
+    if (await this.markRead(ids)) await this.refreshUnreadCount();
   }
 
   private async refreshUnreadCount() {
@@ -558,6 +622,8 @@ class WecomTheme implements ThemePack {
       this.state.commentsTotalPages = comments.total_pages ?? 0;
       this.state.messages = buildMessages(post, comments.items ?? [], this.state.user?.id ?? null);
       this.renderChat();
+      // IM 惯例：打开会话即清除该帖未读（角标同步减少）；unread 为 null（获取失败）时也重试
+      if (this.state.user && this.state.unread !== 0) void this.markPostRead(shortId);
     } catch (e) {
       if (seq !== this.chatSeq || !this.ctx) return;
       const err = e as ApiError;

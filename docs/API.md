@@ -30,9 +30,10 @@
 | POST | `/api/posts` | `{ title, content, node_id, title_prefix?, ... }` | 发帖，最小 `{title, content, node_id}` |
 | GET | `/api/search` | `q` | 站内搜索（匿名返回 `d:null`，需登录） |
 | GET | `/api/users/info` | - | 当前用户信息 |
-| GET | `/api/notifications/unread-count` | - | 未读数（需登录）。返回 `{ unread_count, badge_unread_count, follow_unread_count, watch_content_count, home_unread_count, community_unread_count }` |
-| GET | `/api/notifications/list` | `page, type?` | 通知列表（需登录）。`d = { list: NotificationItem[], total, page, limit, total_pages }`。`type` 可选：reply/reply_mention/reaction/mention/system/pandora/level_up/get_reward/favorite/content_check/badge_unlocked/follow |
-| POST | `/api/notifications/mark-as-read` | `{ id: string[] }` | 批量标记通知已读（需登录） |
+| GET | `/api/notifications/unread-count` | - | 未读数（需登录）。返回 `{ unread_count, badge_unread_count, follow_unread_count, watch_content_count, home_unread_count, community_unread_count }`。可选 query：`watch_last_read_at`/`home_last_read_at`/`community_last_read_at`（站点用于计算分栏增量未读，角标场景可不带）。**实测（2026-09）：`document.title` 的「(N)」角标对应 `unread_count`（通知列表未读总数）；`badge_unread_count` 是站内未读弹窗组件的「是否已见」标记（弹过即 0），不能当角标用** |
+| GET | `/api/notifications/badge-unread` | - | 未读弹窗组件用的端点（站点 `getBadgeUnread`），非导航角标 |
+| GET | `/api/notifications/list` | `page, type?, unread_only?` | 通知列表（需登录）。`d = { list: NotificationItem[], total, page, limit, total_pages }`。`type` 可选：reply/reply_mention/reaction/mention/system/pandora/level_up/get_reward/favorite/content_check/badge_unlocked/follow；`unread_only=true` 只返回未读 |
+| POST | `/api/notifications/mark-as-read` | `{ id: string[] }` | 批量标记通知已读（需登录）。**已核实**（站点前端 `markAsRead(ids)` 全部传 id 数组）；站点惯例：标记成功后立即强制刷新 unread-count |
 
 ### NotificationItem 结构（逆向自站点前端）
 

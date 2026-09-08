@@ -161,6 +161,8 @@ export const dataApi: DataApi = {
   },
 
   async getUnreadCount(): Promise<number | null> {
+    // 实测：站点 document.title 角标「(N)」对应 unread_count（通知列表未读总数）；
+    // badge_unread_count 是站内未读弹窗组件的「是否已见」标记（看过即 0），不能当角标用
     try {
       const d = await get<unknown>("/api/notifications/unread-count");
       if (typeof d === "number") return d;
