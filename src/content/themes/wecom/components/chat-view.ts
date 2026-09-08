@@ -20,6 +20,8 @@ export interface ChatCallbacks {
   /** 表态环境（官方接口 + 消息行刷新，由主题接线） */
   reaction(): ReactionEnv;
   onOpenUser(name: string): void;
+  /** 正文图片点击 → 当前页内悬浮放大查看 */
+  onOpenImage(src: string, alt?: string): void;
 }
 
 const time = (iso: string) => new Date(iso).getTime();
@@ -203,7 +205,7 @@ export function buildMessageRow(m: ChatMessage, cb: ChatCallbacks, user: UserInf
 
 function bindContentLinks(scope: HTMLElement, cb: ChatCallbacks) {
   scope.querySelectorAll<HTMLImageElement>("img.wc-md-img").forEach((img) => {
-    on(img, "click", () => window.open(img.src, "_blank", "noopener"));
+    on(img, "click", () => cb.onOpenImage(img.src, img.alt));
   });
   scope.querySelectorAll<HTMLAnchorElement>("a.wc-md-link").forEach((a) => {
     on(a, "click", (e) => {

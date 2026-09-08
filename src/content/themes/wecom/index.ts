@@ -28,6 +28,7 @@ import { renderMembersPanel, type MembersCallbacks } from "./components/members-
 import { renderNewChat, removeNewChat } from "./components/new-chat";
 import { renderProfileCard, removeProfileCard } from "./components/profile-card";
 import { toast } from "./components/ui";
+import { openImageViewer } from "./components/image-viewer";
 import tokensCss from "./tokens.css";
 import wecomCss from "./wecom.css";
 
@@ -370,6 +371,9 @@ class WecomTheme implements ThemePack {
         onOpenUser: (name) => this.router.push(`/user/${encodeURIComponent(name)}/about`),
       }),
       onOpenUser: (name) => this.router.push(`/user/${encodeURIComponent(name)}/about`),
+      onOpenImage: (src, alt) => {
+        if (this.ctx) openImageViewer(this.ctx.root, src, alt);
+      },
     };
   }
 

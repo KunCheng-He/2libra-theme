@@ -1114,6 +1114,49 @@ img {
   z-index: 100;
 }
 
+/* 图片悬浮查看器 */
+.wc-imgview {
+  background: rgba(0, 0, 0, 0.72);
+  cursor: zoom-out;
+  animation: wc-imgview-in 0.16s ease-out;
+}
+@keyframes wc-imgview-in {
+  from {
+    opacity: 0;
+  }
+}
+.wc-imgview-img {
+  max-width: min(92vw, 1280px);
+  max-height: 92vh;
+  border-radius: 8px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+  cursor: default;
+  user-select: none;
+}
+.wc-imgview-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.wc-imgview-close:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+.wc-imgview-close .wc-ic {
+  width: 20px;
+  height: 20px;
+}
+
 .wc-dialog {
   width: 640px;
   max-width: calc(100vw - 80px);
