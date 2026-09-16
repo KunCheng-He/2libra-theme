@@ -739,14 +739,14 @@ img {
 }
 .wc-msg.is-self .wc-quote {
   background: var(--wc-quote-self-bg);
-  color: #3f5b2d;
+  color: #47586d;
 }
 .wc-quote-name {
   color: var(--wc-blue);
   margin-right: 4px;
 }
 .wc-msg.is-self .wc-quote .wc-quote-name {
-  color: #2d5b1e;
+  color: #2b6cd4;
 }
 .wc-quote-text {
   display: -webkit-box;
