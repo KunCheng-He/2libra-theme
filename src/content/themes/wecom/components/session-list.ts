@@ -149,12 +149,12 @@ export function renderSessions(
   route: ThemeRoute,
   cb: ListCallbacks,
 ) {
-  if (state.unreadFilter) return renderUnreadSessions(container, state, cb);
+  if (state.unreadFilter) return renderUnreadSessions(container, state, route, cb);
   return renderLatestSessions(container, state, route, cb);
 }
 
 /** 未读消息视图：只展示有未读通知的帖子；无未读时回退展示历史消息（已读通知聚合） */
-function renderUnreadSessions(container: HTMLElement, state: AppState, cb: ListCallbacks) {
+function renderUnreadSessions(container: HTMLElement, state: AppState, route: ThemeRoute, cb: ListCallbacks) {
   if (state.unreadLoading && state.unreadSessions.length === 0 && state.readSessions.length === 0) {
     clear(container);
     for (let i = 0; i < 6; i++) container.append(el("div", { class: "wc-skeleton" }));
@@ -164,16 +164,17 @@ function renderUnreadSessions(container: HTMLElement, state: AppState, cb: ListC
   clear(container);
   if (!state.unreadSessions.length) {
     container.append(el("div", { class: "wc-list-state" }, "暂无未读消息"));
-    for (const s of state.readSessions) container.append(unreadSessionItem(cb, s, true));
+    for (const s of state.readSessions) container.append(unreadSessionItem(cb, s, true, route));
     return;
   }
 
-  for (const s of state.unreadSessions) container.append(unreadSessionItem(cb, s, false));
+  for (const s of state.unreadSessions) container.append(unreadSessionItem(cb, s, false, route));
 }
 
 /** 未读/历史会话项：history=true 时无红点角标，点击不触发已读标记 */
-function unreadSessionItem(cb: ListCallbacks, s: UnreadSession, history: boolean): HTMLElement {
-  const item = el("div", { class: "wc-session" });
+function unreadSessionItem(cb: ListCallbacks, s: UnreadSession, history: boolean, route: ThemeRoute): HTMLElement {
+  const active = route.type === "post" && route.postId === s.shortId;
+  const item = el("div", { class: `wc-session${active ? " is-active" : ""}` });
   item.append(unreadAvatarEl(cb, s));
 
   const main = el("div", { class: "wc-session-main" });
