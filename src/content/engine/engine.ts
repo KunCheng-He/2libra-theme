@@ -3,6 +3,7 @@ import type { ThemePack, ThemeRoute } from "../../shared/types";
 import { dataApi } from "../data/api";
 import { registry } from "../themes/registry";
 import { adoptHostStyle, destroyHost, ensureShadowRoot, hideHost, releaseHostStyle, showHost, startHostGuard } from "./host";
+import { startNativeModalKeeper, stopNativeModalKeeper } from "./native-modal";
 import { createRouter } from "./router";
 
 type State = "idle" | "active" | "fallback";
@@ -78,6 +79,7 @@ class Engine {
 
   private async activate(theme: ThemePack) {
     adoptHostStyle();
+    startNativeModalKeeper();
     const root = ensureShadowRoot();
     showHost();
     try {
@@ -134,6 +136,7 @@ class Engine {
   }
 
   private async deactivateTheme() {
+    stopNativeModalKeeper();
     if (!this.theme) return;
     try {
       await this.theme.unmount();

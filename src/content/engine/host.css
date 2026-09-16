@@ -1,8 +1,23 @@
 /* 接管样式：仅当 <html data-2lt-on> 时隐藏原应用全部子节点。
    主题宿主元素挂载在 <html> 上不受影响；站点新增的弹层（portal 到 body）同样被隐藏。 */
 
-html[data-2lt-on] body > :not([data-2lt-host]) {
+html[data-2lt-on] body > :not([data-2lt-host]):not([data-2lt-veil]):not([data-2lt-native-modal]) {
   display: none !important;
+}
+
+/* 站点原生弹窗（每日签到检定）：原样保留、不做伪装。
+   - [data-2lt-veil]：弹窗所在的顶层容器改为「不参与绘制」（visibility 可被子级覆盖），
+     避免其内部整页内容顶掉伪装界面；弹窗子树自身恢复可见。
+   - [data-2lt-native-modal]：弹窗本体置顶（配合 showModal 的 top layer 双保险）。 */
+html[data-2lt-on] body > [data-2lt-veil] {
+  visibility: hidden !important;
+}
+
+html[data-2lt-on] [data-2lt-native-modal] {
+  visibility: visible !important;
+  display: grid !important;
+  pointer-events: auto !important;
+  z-index: 2147483647 !important;
 }
 
 html[data-2lt-on] body {
