@@ -27,6 +27,7 @@ import { loadEmojiCatalog } from "../../data/emoji";
 import { renderMembersPanel, type MembersCallbacks } from "./components/members-panel";
 import { renderNewChat, removeNewChat } from "./components/new-chat";
 import { renderProfileCard, removeProfileCard } from "./components/profile-card";
+import { applyPandoraEffect, closeAllPandoraModals } from "./components/pandora";
 import { toast } from "./components/ui";
 import { openImageViewer } from "./components/image-viewer";
 import tokensCss from "./tokens.css";
@@ -199,6 +200,7 @@ class WecomTheme implements ThemePack {
       if (this.badgeTimer) clearInterval(this.badgeTimer);
       this.badgeTimer = null;
     });
+    this.cleanup.push(() => closeAllPandoraModals());
   }
 
   async unmount(): Promise<void> {
@@ -267,15 +269,34 @@ class WecomTheme implements ThemePack {
           this.ctx.root,
           this.state.user,
           this.state.user ? this.data.avatarUrl(this.state.user) : "",
+          this.data,
           {
             onClose: () => removeProfileCard(this.ctx!.root),
-            onCopy: (ok) => toast(this.ctx!.root, ok ? "已复制 ID" : "复制失败"),
             onMyPosts: () => {
-              const u = this.state.user;
               removeProfileCard(this.ctx!.root);
-              if (u) this.router.push(`/user/${u.username}/about`);
+              void this.openMyPosts();
             },
             onLogin: () => this.router.push("/login"),
+            onNewPost: () => {
+              if (!this.ctx) return;
+              toast(this.ctx.root, "发帖功能暂不开放");
+            },
+            onBell: () => {
+              // 已读动作在打开对应会话时完成（openUnread）
+              removeProfileCard(this.ctx!.root);
+              void this.toggleUnreadView();
+            },
+            onSign: (st) => {
+              const sign = st?.sign;
+              if (!sign) return;
+              const state = sign.todaySigned ? "今日已签到" : "今日未签到";
+              const at = sign.todaySignAt
+                ? ` · 签到于 ${new Date(sign.todaySignAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`
+                : "";
+              const max = typeof sign.maxStreak === "number" ? ` · 最多连签 ${sign.maxStreak} 天` : "";
+              toast(this.ctx!.root, `${state}，连签 ${sign.streak} 天${max}${at}`);
+            },
+            toast: (msg) => toast(this.ctx!.root, msg),
           },
         );
       },
@@ -296,6 +317,7 @@ class WecomTheme implements ThemePack {
       onOpenUnread: (s) => void this.openUnread(s),
       onOpenHistoryPost: (s) => this.router.push(`/post/${s.nodeSlug || "forum"}/${s.shortId}`),
       onUnreadChip: () => void this.loadUnreadSessions(),
+      onMyPostsChip: () => this.exitMyPostsMode(),
       onSearchInput: (q) => {
         this.state.searchQuery = q;
         this.state.searchOpen = true;
@@ -474,6 +496,33 @@ class WecomTheme implements ThemePack {
     this.state.unreadFilter = true;
     this.refreshListUi();
     await this.loadUnreadSessions();
+  }
+
+  /** 我的帖子视图：会话列表切换为个人帖子（伪装保持不变），chip 点击退出 */
+  private async openMyPosts() {
+    if (!this.ctx || !this.refs) return;
+    if (!this.state.user) {
+      toast(this.ctx.root, "请先登录后查看我的帖子");
+      return;
+    }
+    if (this.state.unreadFilter) this.exitUnreadView();
+    this.state.myPostsMode = true;
+    this.refreshListUi();
+    if (this.state.myPosts.length) return;
+    this.state.myPostsLoading = true;
+    this.paintSessions();
+    const posts = await this.guard(() => this.data.listMyPosts());
+    this.state.myPostsLoading = false;
+    if (!this.ctx || !this.state.myPostsMode) return;
+    this.state.myPosts = posts ?? [];
+    this.paintSessions();
+  }
+
+  private exitMyPostsMode() {
+    this.state.myPostsMode = false;
+    this.state.myPosts = [];
+    this.state.myPostsLoading = false;
+    this.refreshListUi();
   }
 
   private exitUnreadView() {
@@ -763,6 +812,7 @@ class WecomTheme implements ThemePack {
         this.state.activeParent = null;
         this.state.activeChildSlug = null;
         this.exitUnreadView();
+        this.exitMyPostsMode();
         this.clearChatState();
         this.refreshListUi();
         renderEmpty(this.refs.main);
@@ -773,6 +823,7 @@ class WecomTheme implements ThemePack {
         this.state.activeParent = route.parentSlug ?? null;
         this.state.activeChildSlug = route.childSlug ?? null;
         this.exitUnreadView();
+        this.exitMyPostsMode();
         this.clearChatState();
         this.refreshListUi();
         renderEmpty(this.refs.main);
@@ -806,6 +857,7 @@ class WecomTheme implements ThemePack {
       case "search": {
         this.state.activeParent = null;
         this.exitUnreadView();
+        this.exitMyPostsMode();
         this.clearChatState();
         this.refreshListUi();
         renderEmpty(this.refs.main);

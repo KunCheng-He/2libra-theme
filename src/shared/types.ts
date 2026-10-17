@@ -35,6 +35,92 @@ export interface Author {
   role?: string;
   is_pro?: boolean;
   equipped_badges?: { badge: { name: string; icon_url: string } }[];
+  /** 潘多拉头像状态（帖子/评论/通知等用户载荷普遍携带） */
+  pandora_info?: PandoraAvatarState | null;
+}
+
+/** 潘多拉头像效果状态（/api/users/info 及各用户载荷的 pandora_info） */
+export interface PandoraAvatarState {
+  active: boolean;
+  box_status?: string;
+  event_code?: string;
+  event_title?: string;
+  expire_at?: string;
+  avatar_effect?: string;
+  avatar_skew_angle?: number;
+}
+
+/** 潘多拉盒子实例（GET /api/pandora/today 的 d.box） */
+export interface PandoraBox {
+  box_instance_id: string;
+  event_code: string;
+  event_name?: string;
+  event_title?: string;
+  tier_code?: string;
+  /** bronze / silver / gold / purple */
+  rarity: string;
+  rolled_value?: number;
+  open_at: string;
+  apply_at: string;
+  expire_at: string;
+  reroll_deadline_at: string | null;
+  reroll_used: number;
+  reroll_limit: number;
+  force_purple_reroll: boolean;
+}
+
+/** GET /api/pandora/today */
+export interface PandoraToday {
+  has_box: boolean;
+  can_open: boolean;
+  opened_today?: boolean;
+  next_open_at?: string | null;
+  active_extended: boolean;
+  box: PandoraBox | null;
+}
+
+/** GET /api/users/info?fields=exp 的 d.exp */
+export interface UserExpInfo {
+  level: number;
+  currentExp: number;
+  nextLevelExp: number;
+  expToNext: number;
+  progress: number;
+  maxLevel?: number;
+  limit?: {
+    dailyPostLimit?: number;
+    dailyCommentLimit?: number;
+    dailyReactionLimit?: number;
+    dailyVoteLimit?: number;
+    dailyBetLimit?: number;
+    dailyRewardLimit?: number;
+  } | null;
+}
+
+/** GET /api/users/info?fields=active 的 d.active（今日活跃度档位） */
+export interface DailyActive {
+  score: number;
+  percent: number;
+  tierIndex: number;
+  marks?: number[];
+  resetInSeconds?: number;
+}
+
+/** GET /api/sign/stats */
+export interface SignStats {
+  streak: number;
+  maxStreak?: number;
+  todaySigned?: boolean;
+  lastSignDate?: string | null;
+  todaySignAt?: string | null;
+}
+
+/** 当前用户扩展统计（exp / coins / active / 连签） */
+export interface MyStats {
+  exp: UserExpInfo | null;
+  coins: number;
+  active: DailyActive | null;
+  sign: SignStats | null;
 }
 
 /** 表情表态汇总（GET /api/posts/{id}、/api/comments/list 的 reactions_summary） */
@@ -269,6 +355,14 @@ export interface CreateCommentInput {
   replyCommentId?: string;
 }
 
+/** GET /api/posts/mine 的列表项（我的帖子） */
+export interface MyPostSummary {
+  short_id: string;
+  title: string;
+  created_at: string;
+  node: { slug: string; name: string; parent_slug?: string };
+}
+
 export interface CreatePostInput {
   title: string;
   content: string;
@@ -317,6 +411,16 @@ export interface DataApi {
   createReward(input: CreateRewardInput): Promise<unknown>;
   search(q: string): Promise<{ posts?: SearchResultItem[]; users?: SearchResultItem[]; nodes?: SearchResultItem[] } | null>;
   getCurrentUser(): Promise<UserInfo | null>;
+  // 我的帖子
+  listMyPosts(): Promise<MyPostSummary[]>;
+  // 用户扩展统计（等级/经验/金币/今日活跃度）
+  getMyStats(): Promise<MyStats | null>;
+  // 连签统计
+  getSignStats(): Promise<SignStats | null>;
+  // 潘多拉盒子
+  getPandoraToday(): Promise<PandoraToday | null>;
+  openPandora(): Promise<PandoraBox>;
+  rerollPandora(boxInstanceId: string): Promise<PandoraBox>;
   getUnreadCount(): Promise<number | null>;
   listNotifications(page: number, type?: string): Promise<NotificationPage>;
   markNotificationsRead(ids: string[]): Promise<unknown>;

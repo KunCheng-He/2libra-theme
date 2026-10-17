@@ -13,6 +13,8 @@ export interface ListCallbacks {
   /** 历史消息（已读通知聚合）会话点击：仅打开帖子 */
   onOpenHistoryPost(s: UnreadSession): void;
   onUnreadChip(): void;
+  /** 「我的帖子」chip 点击：切回全部会话 */
+  onMyPostsChip(): void;
   onSearchInput(q: string): void;
   onSearchFocus(): void;
   onSearchEnter(q: string): void;
@@ -79,6 +81,11 @@ export function renderTabs(container: HTMLElement, state: AppState, cb: ListCall
     const n = state.unreadSessions.reduce((acc, s) => acc + s.unread, 0);
     const chip = mk(`未读消息${n ? ` ${n}` : ""}`, true, () => cb.onUnreadChip());
     chip.title = "点击刷新未读消息";
+    visible.push(chip);
+  }
+  if (state.myPostsMode) {
+    const chip = mk(`我的帖子${state.myPosts.length ? ` ${state.myPosts.length}` : ""}`, true, () => cb.onMyPostsChip());
+    chip.title = "点击返回全部会话";
     visible.push(chip);
   }
   visible.push(mk("全部", !state.activeParent && !state.unreadFilter, () => cb.onOpenHome()));
@@ -149,8 +156,40 @@ export function renderSessions(
   route: ThemeRoute,
   cb: ListCallbacks,
 ) {
+  if (state.myPostsMode) return renderMyPosts(container, state, route, cb);
   if (state.unreadFilter) return renderUnreadSessions(container, state, route, cb);
   return renderLatestSessions(container, state, route, cb);
+}
+
+/** 我的帖子视图（个人卡片入口）：伪装不变，会话列表换成自己的帖子 */
+function renderMyPosts(container: HTMLElement, state: AppState, route: ThemeRoute, cb: ListCallbacks) {
+  if (state.myPostsLoading && !state.myPosts.length) {
+    clear(container);
+    for (let i = 0; i < 6; i++) container.append(el("div", { class: "wc-skeleton" }));
+    return;
+  }
+  clear(container);
+  if (!state.myPosts.length) {
+    container.append(el("div", { class: "wc-list-state" }, "还没有发过帖子"));
+    return;
+  }
+  for (const p of state.myPosts) {
+    const active = route.type === "post" && route.postId === p.short_id;
+    const item = el("div", { class: `wc-session${active ? " is-active" : ""}` });
+    item.append(nodeAvatarEl(p.node.name, p.node.slug));
+
+    const main = el("div", { class: "wc-session-main" });
+    main.append(el("div", { class: "wc-session-title" }, p.title || "（无标题）"));
+    main.append(el("div", { class: "wc-session-sub" }, p.node.name || "帖子"));
+    item.append(main);
+
+    const side = el("div", { class: "wc-session-side" });
+    side.append(el("span", { class: "wc-session-time" }, formatListTime(p.created_at)));
+    item.append(side);
+
+    on(item, "click", () => cb.onOpenPost(p.node.parent_slug || p.node.slug, p.short_id));
+    container.append(item);
+  }
 }
 
 /** 未读消息视图：只展示有未读通知的帖子；无未读时回退展示历史消息（已读通知聚合） */

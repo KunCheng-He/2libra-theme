@@ -14,6 +14,13 @@ import type {
   TogglePostReactionInput,
   CreateRewardInput,
   UserInfo,
+  MyPostSummary,
+  MyStats,
+  UserExpInfo,
+  DailyActive,
+  SignStats,
+  PandoraToday,
+  PandoraBox,
 } from "../../shared/types";
 import { PAGE_SIZE_COMMENTS, PAGE_SIZE_POSTS, R2_ORIGIN } from "../../shared/constants";
 import { ApiError, get, post } from "./client";
@@ -158,6 +165,64 @@ export const dataApi: DataApi = {
     } catch {
       return null;
     }
+  },
+
+  /** 我的帖子（GET /api/posts/mine） */
+  async listMyPosts(): Promise<MyPostSummary[]> {
+    try {
+      const d = await get<{ posts?: MyPostSummary[] } | MyPostSummary[]>("/api/posts/mine");
+      return Array.isArray(d) ? d : ((d?.posts ?? []) as MyPostSummary[]);
+    } catch {
+      return [];
+    }
+  },
+
+  /** 等级/经验/金币/今日活跃度（与站点 user-exp-info/user-coins/active 同源） */
+  async getMyStats(): Promise<MyStats | null> {
+    try {
+      const d = await get<{ exp?: UserExpInfo; coins?: number; active?: DailyActive }>(
+        "/api/users/info?fields=exp,coins,active",
+      );
+      if (!d) return null;
+      return {
+        exp: d.exp ?? null,
+        coins: typeof d.coins === "number" ? d.coins : 0,
+        active: d.active ?? null,
+        sign: null,
+      };
+    } catch {
+      return null;
+    }
+  },
+
+  /** 连签统计（/api/sign/stats：streak/todaySigned 等） */
+  async getSignStats(): Promise<SignStats | null> {
+    try {
+      const d = await get<SignStats>("/api/sign/stats");
+      return d && typeof d.streak === "number" ? d : null;
+    } catch {
+      return null;
+    }
+  },
+
+  /** 今日潘多拉状态：can_open（可开盒）/ active box（可质变窗口内） */
+  async getPandoraToday(): Promise<PandoraToday | null> {
+    try {
+      const d = await get<PandoraToday>("/api/pandora/today");
+      return d && typeof d.has_box === "boolean" ? d : null;
+    } catch {
+      return null;
+    }
+  },
+
+  /** 开盒（每日一次，覆盖进行中事件由调用方先确认） */
+  async openPandora(): Promise<PandoraBox> {
+    return post<PandoraBox>("/api/pandora/open", {});
+  },
+
+  /** 质变（翻转重新抽取一次，窗口内且未用完次数） */
+  async rerollPandora(boxInstanceId: string): Promise<PandoraBox> {
+    return post<PandoraBox>("/api/pandora/reroll", { box_instance_id: boxInstanceId });
   },
 
   async getUnreadCount(): Promise<number | null> {

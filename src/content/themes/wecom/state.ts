@@ -2,6 +2,7 @@ import type {
   Author,
   ChatMessage,
   CommentNode,
+  MyPostSummary,
   NodeGroup,
   PostDetail,
   PostSummary,
@@ -75,6 +76,11 @@ export interface AppState {
   /** 历史消息：已读通知按帖子聚合（未读为空时回退展示） */
   readSessions: UnreadSession[];
 
+  /** 我的帖子列表（个人卡片入口进入的独立视图） */
+  myPostsMode: boolean;
+  myPosts: MyPostSummary[];
+  myPostsLoading: boolean;
+
   searchOpen: boolean;
   searchQuery: string;
   searchResults: SearchResults | null;
@@ -108,6 +114,10 @@ export const initialState = (): AppState => ({
   unreadSessions: [],
   unreadLoading: false,
   readSessions: [],
+
+  myPostsMode: false,
+  myPosts: [],
+  myPostsLoading: false,
 
   searchOpen: false,
   searchQuery: "",

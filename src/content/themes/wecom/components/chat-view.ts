@@ -5,6 +5,7 @@ import { icon } from "./ui";
 import { copyText, fallbackAvatar, formatDivider, formatFloorDate, snippet } from "../../../data/format";
 import { renderEmojiHtml, renderMarkdown } from "../../../data/markdown";
 import { openReactionMenu, openReactionMenuAnchored, renderReactionRow, type ReactionEnv, type ReactionKind } from "./reactions";
+import { applyPandoraEffect } from "./pandora";
 import { TIME_DIVIDER_GAP_MIN } from "../../../../shared/constants";
 
 export interface ChatCallbacks {
@@ -134,8 +135,10 @@ export function buildMessageRow(m: ChatMessage, cb: ChatCallbacks, user: UserInf
     av.onerror = null;
     av.src = fallbackAvatar(m.name);
   };
-  on(av, "click", () => cb.onAvatar(m.name));
   wrap.append(av);
+  on(av, "click", () => cb.onAvatar(m.name));
+  // 潘多拉头像效果（站点原版：对每个用户的 pandora_info 生效；aura 会把 img 包一层光环）
+  applyPandoraEffect(av, m.author.pandora_info);
 
   const col = el("div", { class: "wc-msg-col" });
   const meta = el("div", { class: "wc-msg-meta" });

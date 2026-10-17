@@ -2,6 +2,7 @@ import type { UserInfo } from "../../../../shared/types";
 import { el, clear, on } from "./el";
 import { icon, type IconName } from "./ui";
 import { fallbackAvatar } from "../../../data/format";
+import { applyPandoraEffect } from "./pandora";
 
 export interface SidebarCallbacks {
   onAvatarClick(): void;
@@ -64,6 +65,7 @@ export function renderSidebar(
   const name = el("span", { class: "wc-nav-me-name", title: user?.username ?? "" }, user?.username ?? "未登录");
   on(name, "click", cb.onAvatarClick);
   me.append(av, name);
+  applyPandoraEffect(av, user?.pandora_info);
 
   /* 主导航 */
   const nav = el("nav", { class: "wc-nav-list" });

@@ -101,6 +101,9 @@ export const icons = {
   quote: svg('<path d="M5 7h6v6H7.5c0 2 1 3.2 3.5 3.6M13.5 7h6v6H17c0 2 1 3.2 3.5 3.6" transform="scale(1,-1) translate(0,-24)"/>'),
   eye: svg('<path d="M2.8 12S6.2 5.8 12 5.8 21.2 12 21.2 12 17.8 18.2 12 18.2 2.8 12 2.8 12Z"/><circle cx="12" cy="12" r="2.6"/>'),
   check: svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
+  bell: svg(
+    '<path d="M9.6 16.4v1.3a2.4 2.4 0 0 0 4.8 0v-1.3"/><path d="M12 4.2a5.4 5.4 0 0 0-5.4 5.4c0 3.3-1 4.6-1.9 5.6-.3.4-.1 .8.3.8h13.9c.5 0 .6-.5.3-.8-.9-1-1.9-2.3-1.9-5.6A5.4 5.4 0 0 0 12 4.2Z"/><path d="M10.4 4.5a1.8 1.8 0 0 1 3.2 0"/>',
+  ),
   logo: `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5.5" fill="#0082ef"/><rect x="5.2" y="6.2" width="13.6" height="9.4" rx="2.4" fill="#fff"/><path d="M8.4 15.6v3l3.4-3z" fill="#fff"/><path d="M8.7 10.9h.01M12 10.9h.01M15.3 10.9h.01" stroke="#0082ef" stroke-width="2" stroke-linecap="round"/></svg>`,
 };
 

@@ -2,6 +2,7 @@ import type { Author, ChatMessage, PostDetail } from "../../../../shared/types";
 import { el, clear, on } from "./el";
 import { icon } from "./ui";
 import { fallbackAvatar } from "../../../data/format";
+import { applyPandoraEffect } from "./pandora";
 
 export interface MembersCallbacks {
   avatarUrl(author: Author | null | undefined): string;
@@ -35,6 +36,7 @@ function rowEl(a: Author, cb: MembersCallbacks, tag?: string): HTMLElement {
     img.src = fallbackAvatar(a.username);
   };
   row.append(img, el("span", { class: "wc-mb-name" }, a.username));
+  applyPandoraEffect(img, a.pandora_info);
   if (tag) row.append(el("span", { class: "wc-mb-tag" }, tag));
   on(row, "click", () => cb.onPick(a.username));
   return row;
